@@ -74,7 +74,7 @@ def test_openrouter():
         )
 
         response = client.chat.completions.create(
-            model="google/gemini-2.5-flash", # Có thể thay bằng model bạn muốn dùng (miễn phí hoặc trả phí) trên OpenRouter
+            model="deepseek/deepseek-v4-flash", # Có thể thay bằng model bạn muốn dùng (miễn phí hoặc trả phí) trên OpenRouter
             messages=[{"role": "user", "content": "Say 'Connection successful!' if you receive this."}],
             max_tokens=10
         )
