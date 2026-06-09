@@ -1,4 +1,78 @@
+# ============== Environment & Secrets ==============
+# QUAN TRỌNG: back_end/.env chứa secrets thật (DB password, API keys, SECRET_KEY...)
+# LUÔN LUÔN ignore .env ở mọi nơi, chỉ commit .env.example
 .env
-venv/
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# ============== Python ==============
 __pycache__/
-*.pyc
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+.venv*/
+env*/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+pip-wheel-metadata/
+
+# ============== Testing & Coverage ==============
+.pytest_cache/
+**/.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+.pyright_cache/
+
+# ============== Logs ==============
+*.log
+logs/
+**/*.log
+
+# ============== IDE & OS ==============
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============== back_end: Personal/debug scripts ==============
+# Các file bắt đầu bằng _ trong back_end/ là script test/debug cá nhân
+# (vd: _e2e_test.py, _smoke_test.py, _verify_db.py)
+# KHÔNG phải test suite chính thức - không commit lên repo
+back_end/_*.py
+!back_end/__init__.py
+!back_end/app/__init__.py
+!back_end/app/**/__init__.py
+
+# ============== Docker volumes (local dev) ==============
+postgres_data/
+redis_data/
+docker-data/
+*.db
+*.sqlite
+*.sqlite3

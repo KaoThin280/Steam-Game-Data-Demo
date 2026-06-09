@@ -1,0 +1,152 @@
+"""
+AI Agent API - Chat/gọi AI phân tích dữ liệu.
+Mỗi endpoint AI đều có rate limit riêng (giới hạn chặt hơn) để bảo vệ quota.
+"""
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.dependencies import get_current_active_user
+from app.core.config import settings
+from app.core.rate_limit import rate_limit
+from app.db.session import get_db
+from app.models.user import User
+from app.services.ai_service import AIService
+
+router = APIRouter(prefix="/ai", tags=["AI Agent"])
+
+
+def get_ai_service(db: AsyncSession = Depends(get_db)) -> AIService:
+    return AIService(db)
+
+
+# ============ Schemas ============
+class ChatRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+    use_sandbox: bool = False
+
+
+class ChatResponse(BaseModel):
+    session_id: str
+    reply: str
+    code_executed: Optional[str] = None
+
+
+class SessionItem(BaseModel):
+    session_id: str
+    last_active: Optional[str] = None
+
+
+class HistoryItem(BaseModel):
+    role: str
+    content: str
+
+
+class HistoryResponse(BaseModel):
+    session_id: str
+    history: List[HistoryItem]
+
+
+# ============ Endpoints ============
+@router.post(
+    "/chat",
+    response_model=ChatResponse,
+    summary="Chat với AI agent (rate limit riêng)",
+)
+async def chat(
+    request: Request,
+    payload: ChatRequest,
+    current_user: User = Depends(get_current_active_user),
+    service: AIService = Depends(get_ai_service),
+):
+    """Chat không stream, có hỗ trợ chạy code Python trong E2B sandbox."""
+    await rate_limit(
+        request,
+        limit=settings.RATE_LIMIT_AI_PER_MINUTE,
+        window=60,
+        bucket="ai",
+    )
+    result = await service.chat(
+        user=current_user,
+        message=payload.message,
+        session_id=payload.session_id,
+        use_sandbox=payload.use_sandbox,
+    )
+    return ChatResponse(**result)
+
+
+@router.post(
+    "/chat/stream",
+    summary="Chat với AI agent (stream, rate limit riêng)",
+)
+async def chat_stream(
+    request: Request,
+    payload: ChatRequest,
+    current_user: User = Depends(get_current_active_user),
+    service: AIService = Depends(get_ai_service),
+):
+    """Chat streaming từ OpenRouter (Server-Sent Events)."""
+    await rate_limit(
+        request,
+        limit=settings.RATE_LIMIT_AI_PER_MINUTE,
+        window=60,
+        bucket="ai-stream",
+    )
+
+    async def event_generator():
+        try:
+            async for chunk in service.chat_stream(
+                user=current_user,
+                message=payload.message,
+                session_id=payload.session_id,
+            ):
+                safe = chunk.replace("\n", "\\n")
+                yield f"data: {safe}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: [ERROR] {str(e).replace(chr(10), ' ')}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.get(
+    "/sessions",
+    response_model=List[SessionItem],
+    summary="Danh sách phiên chat của user hiện tại",
+)
+async def list_sessions(
+    current_user: User = Depends(get_current_active_user),
+    service: AIService = Depends(get_ai_service),
+):
+    return await service.list_sessions(current_user)
+
+
+@router.get(
+    "/history/{session_id}",
+    response_model=HistoryResponse,
+    summary="Lấy lịch sử chat theo session_id",
+)
+async def get_history(
+    session_id: str,
+    limit: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(get_current_active_user),
+    service: AIService = Depends(get_ai_service),
+):
+    history = await service.get_chat_history(
+        user=current_user, session_id=session_id, limit=limit
+    )
+    return HistoryResponse(
+        session_id=session_id,
+        history=[HistoryItem(**h) for h in history],
+    )

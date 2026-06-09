@@ -1,0 +1,30 @@
+# ============== Web Framework ==============
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.20
+
+# ============== Validation ==============
+pydantic==2.10.4
+pydantic-settings==2.7.0
+email-validator==2.2.0
+
+# ============== Security ==============
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1            # passlib yêu cầu phiên bản bcrypt < 4.1
+python-jose[cryptography]==3.3.0
+
+# ============== Database ==============
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+
+# ============== Redis ==============
+redis==5.2.1
+hiredis==3.0.0
+
+# ============== HTTP Client / AI ==============
+httpx==0.28.1
+openai==1.58.1            # OpenRouter tương thích OpenAI SDK
+
+# ============== Utilities ==============
+python-dotenv==1.0.1
