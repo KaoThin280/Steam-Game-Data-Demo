@@ -1,10 +1,13 @@
 """
-Database Session - Khởi tạo kết nối PostgreSQL (Supabase) và Redis (Upstash).
-Tối ưu cho môi trường free-tier (1GB RAM):
-  - Pool size nhỏ (5-10), max_overflow thấp
-  - statement_timeout chặn query treo
+Database Session - PostgreSQL (Supabase) + Redis (Upstash).
+Optimised for free-tier (1GB RAM).
 
-Schema: public (theo SCHEMA_DOCUMENTATION.md).
+Schema: public (per SCHEMA_DOCUMENTATION.md).
+
+Supports both:
+  - Direct connection:   postgresql://...@db.xxx.supabase.co:5432/postgres
+  - Supabase Pooler:     postgresql://...@aws-0-xxx.pooler.supabase.com:6543/postgres
+                         (Transaction mode - disables prepared statements to be safe)
 """
 from typing import AsyncGenerator
 
@@ -35,7 +38,18 @@ _connect_args: dict = {
         "lock_timeout": "10000",
     },
 }
-# Supabase yêu cầu SSL; tách sslmode khỏi URL và dùng connect_args.
+
+# Detect Supabase pooler (Transaction mode on port 6543). asyncpg's prepared
+# statement cache breaks in Transaction mode pooler -> disable it.
+_is_pooler = (
+    "pooler.supabase.com" in _db_url
+    or ":6543" in _db_url
+)
+if _is_pooler:
+    _connect_args["prepared_statement_cache_size"] = 0
+    _connect_args["statement_cache_size"] = 0
+
+# Supabase requires SSL; strip sslmode from URL and pass via connect_args.
 if "sslmode=require" in _db_url or "sslmode=prefer" in _db_url:
     _db_url = _db_url.split("?")[0]
     import ssl as _ssl
@@ -114,7 +128,7 @@ async def close_redis() -> None:
 async def init_db() -> None:
     """
     Khởi tạo database - tạo các bảng nếu chưa tồn tại (chỉ dành cho dev/test).
-    Trong production, hãy dùng db_init_supabase.sql.
+    Trong production, hãy dùng db_extra_tables.sql + db_init_supabase.sql.
     """
     from app.db.base import Base  # noqa: F401
     from app.models import steam, user  # noqa: F401
