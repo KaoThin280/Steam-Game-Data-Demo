@@ -9,7 +9,7 @@ the result back to the model until it produces a natural-language reply.
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from openai import AsyncOpenAI
@@ -379,6 +379,7 @@ class AIService:
             config=clean["config"],
             source_query=clean["source_query"],
         )
+        record.created_at = datetime.now(timezone.utc)
         self.db.add(record)
         await self.db.commit()
         await self.db.refresh(record)
@@ -426,6 +427,7 @@ class AIService:
             session_id=session_id,
             role=role,
             content=content[:8000],
+            created_at=datetime.now(timezone.utc),
         )
         self.db.add(record)
         await self.db.commit()

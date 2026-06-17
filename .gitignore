@@ -91,3 +91,5 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+Instruction.md
+test_api.py

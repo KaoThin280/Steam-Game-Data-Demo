@@ -9,7 +9,9 @@ Supports both:
   - Supabase Pooler:     postgresql://...@aws-0-xxx.pooler.supabase.com:6543/postgres
                          (Transaction mode - disables prepared statements to be safe)
 """
+import re
 from typing import AsyncGenerator
+from urllib.parse import quote, urlparse, urlunparse
 
 import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import (
@@ -21,12 +23,61 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import settings
 from app.core.rate_limit import set_redis_client
 
+
+def _normalize_db_url(raw_url: str) -> str:
+    """
+    Normalise the DATABASE_URL so it can be safely fed into asyncpg.
+
+    Operations performed (in order):
+      1. Strip leading "DATABASE_URL=" duplicates (in case the user pasted it twice).
+      2. Convert "postgresql://" -> "postgresql+asyncpg://" so SQLAlchemy uses asyncpg.
+      3. URL-encode the password component so special characters like @,
+         : / ? # [ ] % are safe.
+      4. Strip any query string (asyncpg accepts connect_args for SSL instead).
+
+    The returned URL is always safe to pass to `create_async_engine`.
+    """
+    if not raw_url:
+        return raw_url
+
+    # 1) Handle duplicated prefix (defensive).
+    url = raw_url.strip()
+    while url.startswith("DATABASE_URL="):
+        url = url[len("DATABASE_URL="):].lstrip()
+
+    # 2) Translate scheme.
+    if url.startswith("postgresql://"):
+        url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+    elif url.startswith("postgres://"):
+        url = "postgresql+asyncpg://" + url[len("postgres://"):]
+
+    # 3) Encode password.
+    parsed = urlparse(url)
+    if parsed.password:
+        # quote() with safe="" encodes everything reserved.
+        encoded_pw = quote(parsed.password, safe="")
+        # Re-build netloc with the encoded password.
+        userinfo = ""
+        if parsed.username:
+            userinfo = quote(parsed.username, safe="")
+        if encoded_pw:
+            userinfo = f"{userinfo}:{encoded_pw}" if userinfo else f":{encoded_pw}"
+        netloc = parsed.hostname or ""
+        if parsed.port:
+            netloc = f"{netloc}:{parsed.port}"
+        new_netloc = f"{userinfo}@{netloc}" if userinfo else netloc
+        url = urlunparse(parsed._replace(netloc=new_netloc))
+
+    # 4) Strip query (asyncpg takes ssl via connect_args).
+    parsed = urlparse(url)
+    if parsed.query:
+        url = urlunparse(parsed._replace(query=""))
+
+    return url
+
+
 # ============== PostgreSQL (Async) ==============
-_db_url = settings.DATABASE_URL
-if _db_url.startswith("postgresql://"):
-    _db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-elif _db_url.startswith("postgres://"):
-    _db_url = _db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+_db_url = _normalize_db_url(settings.DATABASE_URL)
 
 _POOL_SIZE = min(settings.DB_POOL_SIZE, 5)
 _MAX_OVERFLOW = min(settings.DB_MAX_OVERFLOW, 10)
@@ -49,15 +100,13 @@ if _is_pooler:
     _connect_args["prepared_statement_cache_size"] = 0
     _connect_args["statement_cache_size"] = 0
 
-# Supabase requires SSL; strip sslmode from URL and pass via connect_args.
-if "sslmode=require" in _db_url or "sslmode=prefer" in _db_url:
-    _db_url = _db_url.split("?")[0]
-    import ssl as _ssl
+# Supabase requires SSL; pass a TLS context via connect_args.
+import ssl as _ssl
 
-    _ssl_ctx = _ssl.create_default_context()
-    _ssl_ctx.check_hostname = False
-    _ssl_ctx.verify_mode = _ssl.CERT_NONE
-    _connect_args["ssl"] = _ssl_ctx
+_ssl_ctx = _ssl.create_default_context()
+_ssl_ctx.check_hostname = False
+_ssl_ctx.verify_mode = _ssl.CERT_NONE
+_connect_args["ssl"] = _ssl_ctx
 
 async_engine = create_async_engine(
     _db_url,

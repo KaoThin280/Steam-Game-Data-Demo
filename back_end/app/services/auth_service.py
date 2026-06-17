@@ -131,6 +131,7 @@ class AuthService:
                 token=refresh_token,
                 expires_at=expires_at,
                 is_revoked=False,
+                created_at=datetime.now(timezone.utc),
             )
         )
         await self.db.commit()
