@@ -1,0 +1,17 @@
+# ============== Web Framework ==============
+flask==3.1.0
+flask-login==0.6.3
+
+# ============== Database ==============
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+
+# ============== Redis ==============
+redis==5.2.1
+
+# ============== Security ==============
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# ============== Utilities ==============
+python-dotenv==1.0.1

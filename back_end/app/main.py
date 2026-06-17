@@ -10,21 +10,20 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select, text
 
 from app import __version__
-from app.api.v1 import ai_agent, auth, dashboard, games
+from app.api.v1 import admin, ai_agent, auth, dashboard, games
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.core.rate_limit import rate_limit
-from app.core.security import decode_token
+from app.core.security import decode_token, get_password_hash
 from app.db.session import (
     AsyncSessionLocal,
     async_engine,
     close_db,
     close_redis,
-    init_db,
     init_redis,
     redis_client,
 )
-from app.models.user import User
+from app.models.user import AppUser, Role, UserRole
 
 # ============== Logging ==============
 logging.basicConfig(
@@ -37,32 +36,26 @@ logger = logging.getLogger(__name__)
 # ============== Lifespan ==============
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Khởi tạo và đóng kết nối khi app start/stop."""
-    # Startup
-    logger.info("🚀 Starting %s v%s", settings.APP_NAME, settings.APP_VERSION)
+    logger.info("Starting %s v%s", settings.APP_NAME, settings.APP_VERSION)
     try:
         async with async_engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-        logger.info("✅ PostgreSQL connected.")
+        logger.info("PostgreSQL connected.")
 
         await init_redis()
-        logger.info("✅ Redis connected.")
-
-        if settings.DEBUG:
-            await init_db()
-            logger.info("✅ Database tables created (DEBUG mode).")
+        logger.info("Redis connected.")
 
         await _bootstrap_admin()
     except Exception as e:
-        logger.error("❌ Startup error: %s", e)
+        logger.error("Startup error: %s", e)
         raise
 
     yield
 
-    logger.info("🛑 Shutting down...")
+    logger.info("Shutting down...")
     await close_redis()
     await close_db()
-    logger.info("✅ Connections closed.")
+    logger.info("Connections closed.")
 
 
 async def _bootstrap_admin() -> None:
@@ -72,28 +65,38 @@ async def _bootstrap_admin() -> None:
     try:
         async with AsyncSessionLocal() as session:
             existing = await session.execute(
-                select(User).where(User.email == settings.BOOTSTRAP_ADMIN_EMAIL)
+                select(AppUser).where(
+                    AppUser.email == settings.BOOTSTRAP_ADMIN_EMAIL
+                )
             )
             if existing.scalar_one_or_none():
                 logger.info("Bootstrap admin already exists.")
                 return
 
-            from app.core.security import get_password_hash
-            from app.models.user import UserRole
+            # Look up admin role
+            role_q = await session.execute(
+                select(Role).where(Role.role_name == "admin")
+            )
+            admin_role = role_q.scalar_one_or_none()
 
-            admin = User(
+            new_user = AppUser(
                 email=settings.BOOTSTRAP_ADMIN_EMAIL,
                 username=settings.BOOTSTRAP_ADMIN_EMAIL.split("@")[0],
                 full_name="Administrator",
-                hashed_password=get_password_hash(settings.BOOTSTRAP_ADMIN_PASSWORD),
-                role=UserRole.ADMIN.value,
+                password_hash=get_password_hash(
+                    settings.BOOTSTRAP_ADMIN_PASSWORD
+                ),
                 is_active=True,
-                is_verified=True,
             )
-            session.add(admin)
+            session.add(new_user)
+            await session.flush()
+
+            if admin_role is not None:
+                session.add(UserRole(user_id=new_user.id, role_id=admin_role.id))
+
             await session.commit()
             logger.info(
-                "✅ Bootstrap admin created: %s", settings.BOOTSTRAP_ADMIN_EMAIL
+                "Bootstrap admin created: %s", settings.BOOTSTRAP_ADMIN_EMAIL
             )
     except Exception as e:
         logger.warning("Bootstrap admin failed (ignored): %s", e)
@@ -103,7 +106,7 @@ async def _bootstrap_admin() -> None:
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="API cho hệ thống phân tích dữ liệu game Steam + AI Agent",
+    description="API cho hệ thống phân tích dữ liệu game Steam + AI Agent (RBAC).",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -121,13 +124,10 @@ app.add_middleware(
 )
 
 
-# ============== Auth Middleware (inject user_id vào request.state) ==============
+# ============== Auth context middleware ==============
 @app.middleware("http")
 async def auth_context_middleware(request: Request, call_next):
-    """
-    Parse Authorization header (nếu có) và gán user_id vào request.state.
-    Rate limit sẽ ưu tiên user_id hơn IP.
-    """
+    """Parse Authorization header (nếu có) và gán user_id vào request.state."""
     auth_header = request.headers.get("authorization") or request.headers.get(
         "Authorization"
     )
@@ -138,7 +138,6 @@ async def auth_context_middleware(request: Request, call_next):
             if payload.get("type") == "access":
                 request.state.user_id = int(payload.get("sub"))
         except Exception:
-            # Token không hợp lệ -> middleware không làm gì, dep sẽ tự raise
             pass
 
     response = await call_next(request)
@@ -180,9 +179,10 @@ app.include_router(auth.router, prefix=API_V1)
 app.include_router(games.router, prefix=API_V1)
 app.include_router(dashboard.router, prefix=API_V1)
 app.include_router(ai_agent.router, prefix=API_V1)
+app.include_router(admin.router, prefix=API_V1)
 
 
-# ============== Health Check ==============
+# ============== Health ==============
 @app.get("/", tags=["Health"])
 async def root():
     return {
@@ -196,7 +196,6 @@ async def root():
 
 @app.get("/health", tags=["Health"])
 async def health():
-    """Kiểm tra trạng thái service và kết nối DB/Redis."""
     db_status = "unknown"
     redis_status = "unknown"
 
@@ -223,7 +222,6 @@ async def health():
     }
 
 
-# ============== Rate limit demo endpoint ==============
 @app.get("/ping", tags=["Health"])
 async def ping(request: Request):
     """Endpoint test rate limit."""

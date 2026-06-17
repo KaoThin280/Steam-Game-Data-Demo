@@ -1,28 +1,22 @@
 """
-User Schema - Pydantic models cho User
-Dùng để validate input/output cho API.
+User Schema - Pydantic models for application users (public.app_users)
+Aligned with SCHEMA_DOCUMENTATION.md.
 """
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
-
-from app.models.user import UserRole
 
 
 # ============ Base ============
 class UserBase(BaseModel):
-    """Schema cơ sở cho User."""
-
-    email: EmailStr
     username: str = Field(..., min_length=3, max_length=100)
+    email: EmailStr
     full_name: Optional[str] = Field(None, max_length=255)
 
 
 # ============ Create / Register ============
 class UserCreate(UserBase):
-    """Schema cho đăng ký user mới."""
-
     password: str = Field(..., min_length=8, max_length=128)
     confirm_password: str = Field(..., min_length=8, max_length=128)
 
@@ -31,18 +25,13 @@ class UserCreate(UserBase):
 
 # ============ Update ============
 class UserUpdate(BaseModel):
-    """Schema cho cập nhật thông tin user."""
-
     full_name: Optional[str] = Field(None, max_length=255)
-    avatar_url: Optional[str] = Field(None, max_length=500)
     email: Optional[EmailStr] = None
 
     model_config = ConfigDict(extra="forbid")
 
 
 class UserPasswordUpdate(BaseModel):
-    """Schema cho đổi mật khẩu."""
-
     old_password: str = Field(..., min_length=8, max_length=128)
     new_password: str = Field(..., min_length=8, max_length=128)
     confirm_new_password: str = Field(..., min_length=8, max_length=128)
@@ -52,8 +41,6 @@ class UserPasswordUpdate(BaseModel):
 
 # ============ Login ============
 class UserLogin(BaseModel):
-    """Schema cho đăng nhập."""
-
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
 
@@ -62,32 +49,32 @@ class UserLogin(BaseModel):
 
 # ============ Output / Response ============
 class UserOut(UserBase):
-    """Schema trả về thông tin user."""
-
     id: int
-    role: str  # admin | user | premium
     is_active: bool
-    is_verified: bool
-    avatar_url: Optional[str] = None
-    last_login_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    last_login: Optional[datetime] = None
+    roles: List[str] = Field(default_factory=list)
+    permissions: List[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class UserMe(UserOut):
-    """Schema trả về thông tin user hiện tại (kèm extra)."""
+    """Same shape as UserOut for the /me endpoint."""
 
     pass
 
 
 # ============ Admin ============
 class UserAdminUpdate(BaseModel):
-    """Schema admin cập nhật user."""
+    """Admin updates a user's flags (NOT roles - those go through dedicated endpoint)."""
 
-    role: Optional[UserRole] = None
     is_active: Optional[bool] = None
-    is_verified: Optional[bool] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class AssignRoleRequest(BaseModel):
+    role_name: str = Field(..., description="Role name to attach (admin, analyst, scientist, viewer)")
 
     model_config = ConfigDict(extra="forbid")

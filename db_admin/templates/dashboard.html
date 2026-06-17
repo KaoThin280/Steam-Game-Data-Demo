@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - DB Admin{% endblock %}
+{% block content %}
+<h2 style="margin-bottom: 24px;">&#128202; System Overview</h2>
+
+<!-- Status cards -->
+<div class="stats-grid">
+    <div class="stat-card {{ 'success' if pg_stats.connected else 'danger' }}">
+        <div class="stat-value">{{ '&#9989;' if pg_stats.connected else '&#10060;' }}</div>
+        <div class="stat-label">PostgreSQL (steam)</div>
+    </div>
+    <div class="stat-card {{ 'success' if redis_stats.connected else 'danger' }}">
+        <div class="stat-value">{{ '&#9989;' if redis_stats.connected else '&#10060;' }}</div>
+        <div class="stat-label">Redis (Upstash)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ pg_stats.tables|length }}</div>
+        <div class="stat-label">Tables - Schema steam</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ redis_stats.keys_count }}</div>
+        <div class="stat-label">Redis Keys</div>
+    </div>
+</div>
+
+{% if redis_stats.connected %}
+<div class="stat-card" style="margin-bottom: 20px;">
+    <div class="stat-label">Redis Memory</div>
+    <div class="stat-value" style="font-size: 1.4rem;">{{ redis_stats.memory }}</div>
+</div>
+{% endif %}
+
+<!-- PostgreSQL Tables -->
+<div class="card">
+    <h2>&#128451; Steam Schema - Structure & Data</h2>
+    {% if pg_stats.error %}
+    <div class="alert alert-danger">Error: {{ pg_stats.error }}</div>
+    {% endif %}
+
+    {% if pg_stats.tables %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Schema</th>
+                    <th>Table</th>
+                    <th>Rows (approx)</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tbl in pg_stats.tables %}
+                <tr>
+                    <td><span class="badge badge-primary">{{ tbl.schema }}</span></td>
+                    <td><strong>{{ tbl.name }}</strong></td>
+                    <td>{{ tbl.row_count }}</td>
+                    <td style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <!-- View Data -->
+                        <a href="{{ url_for('pg_view_table', schema=tbl.schema, table_name=tbl.name) }}" class="btn btn-sm btn-primary">&#128065; Data</a>
+                        <!-- View Structure (same link, structure section visible by default) -->
+                        <a href="{{ url_for('pg_view_table', schema=tbl.schema, table_name=tbl.name) }}#structureSection" class="btn btn-sm btn-outline">&#9881; Structure</a>
+                        <!-- Drop confirm modal -->
+                        <button onclick="openModal('dropModal-{{ loop.index }}')" class="btn btn-sm btn-danger">&#128465; Drop</button>
+
+                        <div id="dropModal-{{ loop.index }}" class="modal-overlay">
+                            <div class="modal">
+                                <h2>&#9888; Confirm Table Deletion</h2>
+                                <p>You are about to drop <strong>{{ tbl.schema }}.{{ tbl.name }}</strong>. This action <strong>cannot be undone</strong>.</p>
+                                <form method="POST" action="{{ url_for('pg_drop_table', schema=tbl.schema, table_name=tbl.name) }}">
+                                    <div class="form-group">
+                                        <label>Type <code>{{ tbl.schema }}.{{ tbl.name }}</code> to confirm:</label>
+                                        <input type="text" name="confirm_name" placeholder="{{ tbl.schema }}.{{ tbl.name }}" required>
+                                    </div>
+                                    <div class="modal-actions">
+                                        <button type="button" class="btn btn-outline" onclick="closeModal('dropModal-{{ loop.index }}')">Cancel</button>
+                                        <button type="submit" class="btn btn-danger">Drop Table</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-muted);">No tables found in the steam schema.</p>
+    {% endif %}
+</div>
+
+<!-- Quick actions -->
+<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
+    <a href="{{ url_for('pg_create_table_form') }}" class="btn btn-primary">&#10133; New Table (steam)</a>
+    <a href="{{ url_for('pg_sql_form') }}" class="btn btn-outline">&#9000; SQL Console</a>
+    <a href="{{ url_for('redis_logs') }}" class="btn btn-outline">&#128269; View Redis</a>
+</div>
+{% endblock %}

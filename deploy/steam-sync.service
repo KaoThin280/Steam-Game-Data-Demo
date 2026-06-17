@@ -1,0 +1,17 @@
+[Unit]
+Description=Sync Steam Game Data code from GitHub to VPS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/steam-game-staging
+ExecStart=/usr/bin/bash /opt/steam-game/deploy/vps_sync.sh
+StandardOutput=append:/var/log/steam-sync.log
+StandardError=append:/var/log/steam-sync.err.log
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

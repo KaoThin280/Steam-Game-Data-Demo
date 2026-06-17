@@ -13,13 +13,14 @@ from app.api.dependencies import (
 from app.core.config import settings
 from app.core.rate_limit import rate_limit
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import AppUser, Role, Permission
 from app.schemas.token_schema import (
     AccessTokenResponse,
     RefreshTokenRequest,
     TokenResponse,
 )
 from app.schemas.user_schema import (
+    AssignRoleRequest,
     UserCreate,
     UserLogin,
     UserMe,
@@ -32,18 +33,50 @@ from app.services.auth_service import AuthService
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+# ============ Helpers ============
+def _user_to_out(user: AppUser) -> UserOut:
+    """Convert AppUser ORM -> UserOut schema (flatten roles + permissions)."""
+    role_names = []
+    perm_names = []
+    seen_perms = set()
+    for ur in (user.roles or []):
+        if ur.role is None:
+            continue
+        role_names.append(ur.role.role_name)
+        for rp in (ur.role.permissions or []):
+            if rp.permission and rp.permission.permission_name not in seen_perms:
+                seen_perms.add(rp.permission.permission_name)
+                perm_names.append(rp.permission.permission_name)
+    return UserOut(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        full_name=user.full_name,
+        is_active=user.is_active,
+        created_at=user.created_at,
+        last_login=user.last_login,
+        roles=role_names,
+        permissions=sorted(perm_names),
+    )
+
+
+def _me_to_out(user: AppUser) -> UserMe:
+    base = _user_to_out(user)
+    return UserMe(**base.model_dump())
+
+
+# ============ Register / Login / Logout / Refresh ============
 @router.post(
     "/register",
     response_model=UserOut,
     status_code=status.HTTP_201_CREATED,
-    summary="Đăng ký tài khoản mới",
+    summary="Đăng ký tài khoản mới (mặc định role: viewer)",
 )
 async def register(
     request: Request,
     payload: UserCreate,
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    """Đăng ký user mới và trả về thông tin."""
     await rate_limit(
         request,
         limit=settings.RATE_LIMIT_AUTH_PER_MINUTE,
@@ -51,7 +84,7 @@ async def register(
         bucket="auth-register",
     )
     user = await auth_service.register(payload)
-    return user
+    return _user_to_out(user)
 
 
 @router.post(
@@ -64,7 +97,6 @@ async def login(
     payload: UserLogin,
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    """Đăng nhập, trả về access_token và refresh_token."""
     await rate_limit(
         request,
         limit=settings.RATE_LIMIT_AUTH_PER_MINUTE,
@@ -84,7 +116,6 @@ async def refresh_token(
     payload: RefreshTokenRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    """Dùng refresh token để lấy access token mới."""
     await rate_limit(
         request,
         limit=settings.RATE_LIMIT_AUTH_PER_MINUTE,
@@ -102,13 +133,12 @@ async def refresh_token(
 @router.post(
     "/logout",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Đăng xuất",
+    summary="Đăng xuất (revoke refresh token)",
 )
 async def logout(
     token: str = Depends(verify_refresh_token),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    """Revoke refresh token."""
     await auth_service.logout(token)
     return None
 
@@ -117,10 +147,10 @@ async def logout(
 @router.get(
     "/me",
     response_model=UserMe,
-    summary="Thông tin user hiện tại",
+    summary="Thông tin user hiện tại (kèm roles + permissions)",
 )
-async def get_me(current_user: User = Depends(get_current_active_user)):
-    return current_user
+async def get_me(current_user: AppUser = Depends(get_current_active_user)):
+    return _me_to_out(current_user)
 
 
 @router.put(
@@ -130,10 +160,11 @@ async def get_me(current_user: User = Depends(get_current_active_user)):
 )
 async def update_me(
     payload: UserUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: AppUser = Depends(get_current_active_user),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    return await auth_service.update_profile(current_user, payload)
+    user = await auth_service.update_profile(current_user, payload)
+    return _me_to_out(user)
 
 
 @router.put(
@@ -143,7 +174,7 @@ async def update_me(
 )
 async def change_password(
     payload: UserPasswordUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: AppUser = Depends(get_current_active_user),
     auth_service: AuthService = Depends(get_auth_service),
 ):
     if payload.new_password != payload.confirm_new_password:

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}SQL Console - DB Admin{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('dashboard') }}" style="color: var(--text-muted); text-decoration: none;">&larr; Dashboard</a>
+<h2 style="margin-top: 8px; margin-bottom: 24px;">&#9000; SQL Console</h2>
+
+<div class="card">
+    <form id="sqlForm" method="POST" action="{{ url_for('pg_sql_execute') }}">
+        <div class="form-group">
+            <label for="raw_sql">SQL Query</label>
+            <textarea id="raw_sql" name="raw_sql" rows="6" placeholder="SELECT * FROM steam.users LIMIT 10;
+INSERT INTO steam.users (email, username, hashed_password, role) VALUES ('test@test.com', 'testuser', 'hash', 'user');
+UPDATE steam.users SET is_active = false WHERE id = 1;
+DELETE FROM steam.users WHERE id = 999;"
+            ></textarea>
+        </div>
+        <div class="toolbar">
+            <button type="submit" class="btn btn-primary">&#9654; Execute</button>
+            <button type="button" class="btn btn-outline" onclick="document.getElementById('raw_sql').value = ''; document.getElementById('sqlResult').innerHTML = '';">&#8635; Clear</button>
+            <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: auto;">
+                SELECT queries show results. INSERT/UPDATE/DELETE show affected rows.
+            </span>
+        </div>
+    </form>
+</div>
+
+<div id="sqlResult" class="card sql-result" style="display:none;">
+    <h3>&#128202; Result</h3>
+    <div id="resultContent"></div>
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <h3>&#128218; Quick Queries</h3>
+    <div class="toolbar" style="flex-direction: column; align-items: flex-start;">
+        {% set quick_queries = [
+            ('Show all tables', 'SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema NOT IN (\'pg_catalog\', \'information_schema\') ORDER BY table_schema, table_name;'),
+            ('Count all rows in steam schema', 'SELECT table_name, (SELECT COUNT(*) FROM steam.users) as users, (SELECT COUNT(*) FROM steam.game_metas) as game_metas, (SELECT COUNT(*) FROM steam.game_reviews) as game_reviews, (SELECT COUNT(*) FROM steam.chat_histories) as chat_histories;'),
+            ('List admin users', 'SELECT id, email, username, role, is_active, last_login_at FROM steam.users WHERE role = \'admin\';'),
+            ('Top 10 games by reviews', 'SELECT app_id, name, total_reviews, positive_percent FROM steam.game_metas ORDER BY total_reviews DESC LIMIT 10;'),
+            ('Check locks', 'SELECT pid, usename, application_name, state, query FROM pg_stat_activity WHERE state IS NOT NULL;'),
+            ('Database size', 'SELECT pg_database_size(current_database()) / 1024 / 1024 AS size_mb;'),
+            ('Table sizes', 'SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||\'.\'||tablename)) AS size FROM pg_tables WHERE schemaname = \'steam\' ORDER BY pg_total_relation_size(schemaname||\'.\'||tablename) DESC;'),
+            ('Create schema', 'CREATE SCHEMA IF NOT EXISTS steam;'),
+            ('Describe table', 'SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = \'steam\' AND table_name = \'TABLE_NAME\';'),
+        ] %}
+        {% for label, query in quick_queries %}
+        <button type="button" class="btn btn-sm btn-outline" style="text-align: left; white-space: normal; margin: 3px 0;"
+            onclick="document.getElementById('raw_sql').value = `{{ query | replace('`', '\\`') | safe }}`;"
+            title="{{ query }}">
+            {{ label }}
+        </button>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+document.getElementById('sqlForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const resultDiv = document.getElementById('sqlResult');
+    const content = document.getElementById('resultContent');
+
+    content.innerHTML = '<p style="color: var(--text-muted);">&#9203; Executing...</p>';
+    resultDiv.style.display = 'block';
+
+    try {
+        const response = await fetch(this.action, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.error) {
+            content.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.error)}</div>`;
+        } else if (data.is_select && data.columns && data.rows) {
+            let html = `<div class="result-meta">${data.row_count} rows${data.truncated ? ' (truncated at 500 rows)' : ''}</div>`;
+            html += '<div class="table-wrapper"><table><thead><tr>';
+            data.columns.forEach(col => {
+                html += `<th>${escapeHtml(String(col))}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            data.rows.forEach(row => {
+                html += '<tr>';
+                row.forEach(cell => {
+                    const val = cell === null ? '<span class="null-value">NULL</span>' : escapeHtml(String(cell));
+                    html += `<td>${val}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table></div>';
+            content.innerHTML = html;
+        } else {
+            content.innerHTML = `<div class="alert alert-info">${escapeHtml(data.message)}</div>`;
+        }
+    } catch (err) {
+        content.innerHTML = `<div class="alert alert-danger">Error: ${escapeHtml(String(err))}</div>`;
+    }
+});
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

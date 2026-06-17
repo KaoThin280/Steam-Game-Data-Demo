@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Login - DB Admin{% endblock %}
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-icon">&#128737;</div>
+        <h1>DB Admin Panel</h1>
+        <p class="subtitle">Manage Aiven PostgreSQL & Upstash Redis</p>
+        <form method="POST" action="{{ url_for('login_post') }}">
+            <div class="form-group">
+                <label for="username">Admin Account</label>
+                <input type="text" id="username" name="username" placeholder="admin_root" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;" required>
+            </div>
+            <button type="submit" class="btn btn-primary">&#128274; Sign In</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

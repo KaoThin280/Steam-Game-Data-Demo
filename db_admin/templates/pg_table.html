@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% block title %}{{ schema }}.{{ table_name }} - DB Admin{% endblock %}
+{% block content %}
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+    <div>
+        <a href="{{ url_for('dashboard') }}" style="color: var(--text-muted); text-decoration: none;">&larr; Dashboard</a>
+        <h2 style="margin-top: 8px;">&#128451; <span class="badge badge-primary">{{ schema }}</span>.{{ table_name }}</h2>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button onclick="document.getElementById('addRowForm').classList.add('active')" class="btn btn-sm btn-success">&#10133; Add Row</button>
+        <a href="{{ url_for('pg_sql_form') }}" class="btn btn-sm btn-outline">&#9000; SQL Console</a>
+        <button onclick="toggleSection('structureSection')" class="btn btn-sm btn-outline">&#9881; Structure</button>
+        <button onclick="toggleSection('dataSection')" class="btn btn-sm btn-outline">&#128451; Data</button>
+    </div>
+</div>
+
+<!-- ====== Table Structure Section ====== -->
+<div id="structureSection" class="card" style="display:block;">
+    <h3 style="display: flex; justify-content: space-between; align-items: center;">
+        &#128295; Table Structure
+        <button onclick="toggleSection('structureSection')" class="btn btn-sm btn-outline" style="font-size:0.75rem;">Collapse</button>
+    </h3>
+
+    <!-- Columns -->
+    <h4 style="font-size: 0.95rem; margin: 16px 0 8px; color: var(--primary);">&#128204; Columns</h4>
+    <div class="table-wrapper" style="max-height: 400px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Nullable</th>
+                    <th>Default</th>
+                    <th>PK</th>
+                    <th>Comment</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for col in columns %}
+                <tr>
+                    <td style="color: var(--text-muted);">{{ loop.index }}</td>
+                    <td><strong>{{ col.name }}</strong></td>
+                    <td><code style="color: var(--warning); font-size: 0.82rem;">{{ col.type }}</code></td>
+                    <td>
+                        {% if col.nullable %}
+                        <span class="badge badge-success">YES</span>
+                        {% else %}
+                        <span class="badge badge-danger">NO</span>
+                        {% endif %}
+                    </td>
+                    <td style="color: var(--text-muted); font-size: 0.82rem;">
+                        {{ col.default if col.default is not none else '<span class="null-value">NULL</span>'|safe }}
+                    </td>
+                    <td>
+                        {% if col.name in pk_names %}
+                        <span class="badge badge-warning">PK</span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">-</span>
+                        {% endif %}
+                    </td>
+                    <td style="color: var(--text-muted); font-size: 0.8rem;">{{ col.comment or '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Primary Key -->
+    {% if pk_names %}
+    <p style="margin-top: 12px; font-size: 0.85rem;">
+        <span class="badge badge-warning">PRIMARY KEY</span>
+        <strong>{{ pk_names|join(', ') }}</strong>
+    </p>
+    {% endif %}
+
+    <!-- Foreign Keys -->
+    {% if fks %}
+    <h4 style="font-size: 0.95rem; margin: 20px 0 8px; color: var(--primary);">&#128279; Foreign Keys</h4>
+    <div class="table-wrapper" style="max-height: 300px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Column(s)</th>
+                    <th>Referenced Table</th>
+                    <th>Referenced Column(s)</th>
+                    <th>On Update</th>
+                    <th>On Delete</th>
+                    <th>Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fk in fks %}
+                <tr>
+                    <td><strong>{{ fk.constrained_columns|join(', ') }}</strong></td>
+                    <td>
+                        <a href="{{ url_for('pg_view_table', schema=fk.referred_schema or schema, table_name=fk.referred_table) }}" style="color: var(--primary); text-decoration: none;">
+                            <span class="badge badge-primary">{{ fk.referred_schema or schema }}</span>.{{ fk.referred_table }}
+                        </a>
+                    </td>
+                    <td>{{ fk.referred_columns|join(', ') }}</td>
+                    <td><code style="font-size: 0.8rem;">{{ fk.options.get('onupdate', 'NO ACTION') }}</code></td>
+                    <td><code style="font-size: 0.8rem;">{{ fk.options.get('ondelete', 'NO ACTION') }}</code></td>
+                    <td style="font-size: 0.78rem; color: var(--text-muted);">{{ fk.name or 'implicit' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Unique Constraints -->
+    {% if unique_constraints %}
+    <h4 style="font-size: 0.95rem; margin: 20px 0 8px; color: var(--primary);">&#128274; Unique Constraints</h4>
+    {% for uc in unique_constraints %}
+    <p style="font-size: 0.85rem; margin: 4px 0;">
+        <span class="badge badge-success">UNIQUE</span>
+        <strong>{{ uc.column_names|join(', ') }}</strong>
+        <span style="color: var(--text-muted); font-size: 0.78rem;">({{ uc.name }})</span>
+    </p>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Indexes -->
+    {% if indexes %}
+    <h4 style="font-size: 0.95rem; margin: 20px 0 8px; color: var(--primary);">&#128269; Indexes</h4>
+    <div class="table-wrapper" style="max-height: 300px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Columns</th>
+                    <th>Unique</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for idx in indexes %}
+                <tr>
+                    <td style="font-family: monospace; font-size: 0.82rem;">{{ idx.name }}</td>
+                    <td><strong>{{ idx.column_names|join(', ') }}</strong></td>
+                    <td>
+                        {% if idx.unique %}
+                        <span class="badge badge-success">YES</span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">NO</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ====== Data Section ====== -->
+<div id="dataSection" class="card" style="display:block;">
+
+<!-- Add Row Modal -->
+<div id="addRowForm" class="modal-overlay">
+    <div class="modal">
+        <h2>&#10133; Add Row to {{ schema }}.{{ table_name }}</h2>
+        <form method="POST" action="{{ url_for('pg_add_row', schema=schema, table_name=table_name) }}">
+            <input type="hidden" name="current_page" value="{{ page }}">
+            {% for col in columns %}
+            <div class="form-group">
+                <label>
+                    {{ col.name }}
+                    <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">({{ col.type }})</span>
+                    {% if not col.nullable %}<span style="color: var(--danger);">*</span>{% endif %}
+                </label>
+                <input type="text" name="new_col_{{ col.name }}" placeholder="{{ 'NULL' if col.nullable else 'Required' }}"
+                    {% if not col.nullable and col.default is none %}required{% endif %}>
+            </div>
+            {% endfor %}
+            <input type="hidden" name="current_page" value="{{ page }}">
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" onclick="closeModal('addRowForm')">Cancel</button>
+                <button type="submit" class="btn btn-success">Add</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Search & Filter -->
+<div style="margin-bottom: 16px;">
+    <h3 style="margin-bottom: 12px;">&#128451; Table Data</h3>
+    <form method="GET" action="{{ url_for('pg_view_table', schema=schema, table_name=table_name) }}" class="search-bar">
+        <select name="search_col">
+            <option value="">-- Filter by column --</option>
+            {% for cname in column_names %}
+            <option value="{{ cname }}" {% if search_col == cname %}selected{% endif %}>{{ cname }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="search_val" value="{{ search_val }}" placeholder="Search value...">
+        <select name="order_col">
+            <option value="">-- Sort by --</option>
+            {% for cname in column_names %}
+            <option value="{{ cname }}" {% if order_col == cname %}selected{% endif %}>{{ cname }}</option>
+            {% endfor %}
+        </select>
+        <select name="order_dir">
+            <option value="ASC" {% if order_dir == 'ASC' %}selected{% endif %}>Ascending</option>
+            <option value="DESC" {% if order_dir == 'DESC' %}selected{% endif %}>Descending</option>
+        </select>
+        <select name="per_page" onchange="this.form.submit()">
+            <option value="25" {% if per_page == 25 %}selected{% endif %}>25 / page</option>
+            <option value="50" {% if per_page == 50 %}selected{% endif %}>50 / page</option>
+            <option value="100" {% if per_page == 100 %}selected{% endif %}>100 / page</option>
+        </select>
+        <button type="submit" class="btn btn-primary btn-sm">&#128269; Search</button>
+        <a href="{{ url_for('pg_view_table', schema=schema, table_name=table_name) }}" class="btn btn-outline btn-sm">&#8635; Reset</a>
+    </form>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+    <span style="color: var(--text-muted); font-size: 0.85rem;">
+        Total: {{ total_rows }} rows | Page {{ page }}/{{ total_pages }}
+    </span>
+</div>
+
+<div class="table-wrapper" style="max-height: 500px;">
+    <table>
+        <thead>
+            <tr>
+                {% for col in columns %}
+                <th>
+                    {{ col.name }}
+                    <span style="font-weight: 400; font-size: 0.7rem; color: var(--text-muted);">{{ col.type }}</span>
+                </th>
+                {% endfor %}
+                <th style="width: 120px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                {% for col in columns %}
+                <td title="{{ row[col.name]|striptags }}">
+                    {{ row[col.name]|safe }}
+                </td>
+                {% endfor %}
+                <td>
+                    <button onclick="openEditModal({{ loop.index0 }})" class="btn btn-sm btn-primary">&#9998;</button>
+                    <button onclick="openDeleteModal({{ loop.index0 }})" class="btn btn-sm btn-danger">&#10005;</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal-overlay">
+    <div class="modal">
+        <h2>&#9998; Edit Data</h2>
+        <form id="editForm" method="POST" action="{{ url_for('pg_edit_row', schema=schema, table_name=table_name) }}">
+            <input type="hidden" name="current_page" value="{{ page }}">
+            <div id="editFields"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" onclick="closeModal('editModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div id="deleteModal" class="modal-overlay">
+    <div class="modal">
+        <h2>&#9888; Confirm Row Deletion</h2>
+        <div id="deletePreview" style="background: var(--bg); padding: 12px; border-radius: 8px; margin: 12px 0; font-family: monospace; font-size: 0.85rem;">
+        </div>
+        <form id="deleteForm" method="POST" action="{{ url_for('pg_delete_row', schema=schema, table_name=table_name) }}">
+            <input type="hidden" name="current_page" value="{{ page }}">
+            <div id="deleteFields"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" onclick="closeModal('deleteModal')">Cancel</button>
+                <button type="submit" class="btn btn-danger">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Pagination -->
+<div class="pagination">
+    {% if page > 1 %}
+    <a href="{{ url_for('pg_view_table', schema=schema, table_name=table_name, page=page-1, per_page=per_page, search_col=search_col, search_val=search_val, order_col=order_col, order_dir=order_dir) }}">&laquo; Previous</a>
+    {% endif %}
+
+    {% set start_page = [1, page - 2]|max %}
+    {% set end_page = [total_pages, page + 2]|min %}
+    {% for p in range(start_page, end_page + 1) %}
+        {% if p == page %}
+        <span class="current">{{ p }}</span>
+        {% else %}
+        <a href="{{ url_for('pg_view_table', schema=schema, table_name=table_name, page=p, per_page=per_page, search_col=search_col, search_val=search_val, order_col=order_col, order_dir=order_dir) }}">{{ p }}</a>
+        {% endif %}
+    {% endfor %}
+
+    {% if page < total_pages %}
+    <a href="{{ url_for('pg_view_table', schema=schema, table_name=table_name, page=page+1, per_page=per_page, search_col=search_col, search_val=search_val, order_col=order_col, order_dir=order_dir) }}">Next &raquo;</a>
+    {% endif %}
+</div>
+
+</div> <!-- /dataSection -->
+
+<script>
+// Toggle sections
+function toggleSection(id) {
+    const el = document.getElementById(id);
+    if (el.style.display === 'none') {
+        el.style.display = 'block';
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+// Store all row data as JSON
+const allRowsData = {{ rows|tojson|safe }};
+const allColumns = {{ column_names|tojson|safe }};
+const pkNames = {{ pk_names|tojson|safe }};
+
+function getRowData(idx) {
+    const row = allRowsData[idx];
+    const result = {};
+    for (const [key, value] of Object.entries(row)) {
+        const div = document.createElement('div');
+        div.innerHTML = value;
+        result[key] = div.textContent || div.innerText || '';
+    }
+    return result;
+}
+
+function openEditModal(idx) {
+    const row = getRowData(idx);
+    let html = '';
+    for (const col of allColumns) {
+        const val = row[col] || '';
+        const isPk = pkNames.includes(col);
+        html += `<div class="form-group">
+            <label>${col} ${isPk ? '<span style="color: var(--warning);">(PK - not editable)</span>' : ''}</label>`;
+        if (isPk) {
+            html += `<input type="text" value="${escapeHtml(val)}" disabled>
+                     <input type="hidden" name="pk_${col}" value="${escapeHtml(val)}">`;
+        } else {
+            html += `<input type="text" name="col_${col}" value="${escapeHtml(val)}">`;
+        }
+        html += '</div>';
+    }
+    document.getElementById('editFields').innerHTML = html;
+    openModal('editModal');
+}
+
+function openDeleteModal(idx) {
+    const row = getRowData(idx);
+    let preview = '';
+    let fields = '';
+    for (const pk of pkNames) {
+        const val = row[pk] || '';
+        preview += `<strong>${pk}:</strong> ${escapeHtml(val)}<br>`;
+        fields += `<input type="hidden" name="del_pk_${pk}" value="${escapeHtml(val)}">`;
+    }
+    document.getElementById('deletePreview').innerHTML = preview || 'No primary key';
+    document.getElementById('deleteFields').innerHTML = fields;
+    openModal('deleteModal');
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

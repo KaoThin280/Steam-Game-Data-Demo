@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Redis Logs - DB Admin{% endblock %}
+{% block content %}
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+    <div>
+        <a href="{{ url_for('dashboard') }}" style="color: var(--text-muted); text-decoration: none;">&larr; Dashboard</a>
+        <h2 style="margin-top: 8px;">&#128269; Redis Log Viewer <span style="font-size: 0.8rem; color: var(--text-muted);">(Upstash)</span></h2>
+    </div>
+    <button onclick="openModal('addKeyModal')" class="btn btn-sm btn-success">&#10133; Add Key</button>
+</div>
+
+<!-- Quick Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ total_keys }}</div>
+        <div class="stat-label">Total Keys (matching)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ page }}/{{ total_pages }}</div>
+        <div class="stat-label">Page</div>
+    </div>
+</div>
+
+<!-- Search -->
+<div class="card">
+    <form method="GET" action="{{ url_for('redis_logs') }}" class="search-bar">
+        <input type="text" name="pattern" value="{{ pattern }}" placeholder="Key pattern (e.g. rate_limit:*, *, chat:*)" style="min-width: 250px;">
+        <select name="per_page" onchange="this.form.submit()">
+            <option value="25" {% if per_page == 25 %}selected{% endif %}>25 / page</option>
+            <option value="50" {% if per_page == 50 %}selected{% endif %}>50 / page</option>
+            <option value="100" {% if per_page == 100 %}selected{% endif %}>100 / page</option>
+        </select>
+        <button type="submit" class="btn btn-primary btn-sm">&#128269; Search</button>
+        <a href="{{ url_for('redis_logs') }}" class="btn btn-outline btn-sm">&#8635; Reset</a>
+    </form>
+</div>
+
+<!-- Key List -->
+<div class="card">
+    {% if key_values %}
+    {% for kv in key_values %}
+    <div class="log-entry">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+            <div style="flex: 1; min-width: 0;">
+                <div class="log-key">{{ kv.key }}</div>
+                <div class="log-meta">
+                    <span class="badge badge-primary">{{ kv.type }}</span>
+                    {% if kv.ttl == -1 %}
+                    <span class="badge badge-warning">No expiry</span>
+                    {% elif kv.ttl is number and kv.ttl > 0 %}
+                    <span class="badge badge-success">TTL: {{ kv.ttl }}s</span>
+                    {% elif kv.ttl is string %}
+                    <span class="badge badge-warning">{{ kv.ttl }}</span>
+                    {% endif %}
+                </div>
+                {% if kv.value %}
+                <div class="log-value">{{ kv.value }}</div>
+                {% endif %}
+            </div>
+            <div style="flex-shrink: 0;">
+                <form method="POST" action="{{ url_for('redis_delete_key') }}" style="display: inline;" onsubmit="return confirm('Delete key: {{ kv.key }}?')">
+                    <input type="hidden" name="key" value="{{ kv.key }}">
+                    <input type="hidden" name="current_pattern" value="{{ pattern }}">
+                    <input type="hidden" name="current_page" value="{{ page }}">
+                    <button type="submit" class="btn btn-sm btn-danger">&#10005; Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p style="color: var(--text-muted); text-align: center; padding: 40px 0;">
+        {% if pattern == '*' %}
+        No keys found in Redis.
+        {% else %}
+        No keys matching pattern <code>{{ pattern }}</code>.
+        {% endif %}
+    </p>
+    {% endif %}
+</div>
+
+<!-- Pagination -->
+<div class="pagination">
+    {% if page > 1 %}
+    <a href="{{ url_for('redis_logs', pattern=pattern, page=page-1, per_page=per_page) }}">&laquo; Previous</a>
+    {% endif %}
+
+    {% set start_page = [1, page - 2]|max %}
+    {% set end_page = [total_pages, page + 2]|min %}
+    {% for p in range(start_page, end_page + 1) %}
+        {% if p == page %}
+        <span class="current">{{ p }}</span>
+        {% else %}
+        <a href="{{ url_for('redis_logs', pattern=pattern, page=p, per_page=per_page) }}">{{ p }}</a>
+        {% endif %}
+    {% endfor %}
+
+    {% if page < total_pages %}
+    <a href="{{ url_for('redis_logs', pattern=pattern, page=page+1, per_page=per_page) }}">Next &raquo;</a>
+    {% endif %}
+</div>
+
+<!-- Add Key Modal -->
+<div id="addKeyModal" class="modal-overlay">
+    <div class="modal">
+        <h2>&#10133; Add New Key to Redis</h2>
+        <form method="POST" action="{{ url_for('redis_add_key') }}">
+            <div class="form-group">
+                <label for="new_key">Key</label>
+                <input type="text" id="new_key" name="new_key" placeholder="my:key:name" required>
+            </div>
+            <div class="form-group">
+                <label for="new_value">Value</label>
+                <textarea id="new_value" name="new_value" rows="3" placeholder="value content" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="new_type">Type</label>
+                <select id="new_type" name="new_type">
+                    <option value="string">String</option>
+                    <option value="list">List</option>
+                    <option value="set">Set</option>
+                    <option value="hash">Hash (format: field1=val1,field2=val2)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="new_ttl">TTL (seconds, empty = no expiry)</label>
+                <input type="number" id="new_ttl" name="new_ttl" placeholder="3600">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" onclick="closeModal('addKeyModal')">Cancel</button>
+                <button type="submit" class="btn btn-success">Add Key</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

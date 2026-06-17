@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Create Table - DB Admin{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('dashboard') }}" style="color: var(--text-muted); text-decoration: none;">&larr; Dashboard</a>
+<h2 style="margin-top: 8px; margin-bottom: 24px;">&#10133; Create New Table</h2>
+
+<!-- Quick SQL Mode -->
+<div class="card">
+    <h2>&#9000; Create via Raw SQL</h2>
+    <form method="POST" action="{{ url_for('pg_create_table') }}">
+        <div class="form-group">
+            <label for="raw_sql">SQL CREATE TABLE (optional schema)</label>
+            <textarea id="raw_sql" name="raw_sql" rows="8" placeholder="CREATE TABLE IF NOT EXISTS steam.my_table (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">&#9654; Execute SQL</button>
+    </form>
+</div>
+
+<div style="text-align: center; margin: 24px 0; color: var(--text-muted);">or</div>
+
+<!-- Visual Builder Mode -->
+<div class="card">
+    <h2>&#127912; Visual Table Builder</h2>
+    <form method="POST" action="{{ url_for('pg_create_table') }}" id="visualForm">
+        <div class="form-group">
+            <label for="schema">Schema</label>
+            <input type="text" id="schema" name="schema" value="steam" required>
+        </div>
+        <div class="form-group">
+            <label for="table_name">Table Name</label>
+            <input type="text" id="table_name" name="table_name" placeholder="my_new_table" required>
+        </div>
+
+        <input type="hidden" name="column_count" id="columnCount" value="2">
+
+        <div id="columnsContainer">
+            <!-- Dynamic column rows -->
+        </div>
+
+        <button type="button" class="btn btn-outline" onclick="addColumn()" style="margin-right: 12px;">&#10133; Add Column</button>
+        <button type="submit" class="btn btn-success">&#10003; Create Table</button>
+    </form>
+</div>
+
+<script>
+let colCounter = 0;
+const commonTypes = [
+    {value: 'VARCHAR(255)', label: 'VARCHAR(255)'},
+    {value: 'VARCHAR(500)', label: 'VARCHAR(500)'},
+    {value: 'TEXT', label: 'TEXT'},
+    {value: 'INTEGER', label: 'INTEGER'},
+    {value: 'BIGINT', label: 'BIGINT'},
+    {value: 'SMALLINT', label: 'SMALLINT'},
+    {value: 'NUMERIC(12,2)', label: 'NUMERIC(12,2)'},
+    {value: 'REAL', label: 'REAL'},
+    {value: 'BOOLEAN', label: 'BOOLEAN'},
+    {value: 'TIMESTAMPTZ', label: 'TIMESTAMPTZ'},
+    {value: 'JSONB', label: 'JSONB'},
+    {value: 'VARCHAR(100)[]', label: 'VARCHAR(100)[] - Array'},
+    {value: 'SERIAL', label: 'SERIAL (Auto-increment)'},
+    {value: 'BIGSERIAL', label: 'BIGSERIAL'},
+];
+
+function createColumnRow(idx, defaults = {}) {
+    const name = defaults.name || '';
+    const type = defaults.type || 'VARCHAR(255)';
+    const nullable = defaults.nullable !== undefined ? defaults.nullable : true;
+    const isPk = defaults.isPk || false;
+    const defaultVal = defaults.defaultVal || '';
+
+    const typeOptions = commonTypes.map(t =>
+        `<option value="${t.value}" ${t.value === type ? 'selected' : ''}>${t.label}</option>`
+    ).join('');
+
+    return `
+    <div class="add-row-form" style="margin-bottom: 8px;">
+        <input type="text" name="col_name_${idx}" value="${escapeHtml(name)}" placeholder="column_name" required style="min-width: 140px;">
+        <select name="col_type_${idx}" style="width: auto; min-width: 160px;">
+            ${typeOptions}
+        </select>
+        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.82rem;">
+            <input type="checkbox" name="col_pk_${idx}" ${isPk ? 'checked' : ''}> PK
+        </label>
+        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.82rem;">
+            <input type="checkbox" name="col_nullable_${idx}" ${nullable ? 'checked' : ''}> NULL
+        </label>
+        <input type="text" name="col_default_${idx}" value="${escapeHtml(defaultVal)}" placeholder="DEFAULT" style="min-width: 100px;">
+        <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.remove(); updateColumnCount();" style="flex-shrink: 0;">&#10005;</button>
+    </div>`;
+}
+
+function addColumn() {
+    const container = document.getElementById('columnsContainer');
+    container.insertAdjacentHTML('beforeend', createColumnRow(colCounter));
+    colCounter++;
+    updateColumnCount();
+}
+
+function updateColumnCount() {
+    document.getElementById('columnCount').value = document.querySelectorAll('#columnsContainer .add-row-form').length;
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// Initialize with 2 default rows: id (SERIAL PK) and name (VARCHAR)
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('columnsContainer');
+    container.innerHTML = '';
+    container.insertAdjacentHTML('beforeend', createColumnRow(colCounter++, {name: 'id', type: 'BIGSERIAL', nullable: false, isPk: true}));
+    container.insertAdjacentHTML('beforeend', createColumnRow(colCounter++, {name: 'name', type: 'VARCHAR(255)', nullable: false}));
+    updateColumnCount();
+});
+</script>
+{% endblock %}

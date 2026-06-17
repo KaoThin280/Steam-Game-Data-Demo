@@ -1,6 +1,6 @@
 """
-AI Agent API - Chat/gọi AI phân tích dữ liệu.
-Mỗi endpoint AI đều có rate limit riêng (giới hạn chặt hơn) để bảo vệ quota.
+AI Agent API - chat / chat_stream / list sessions / list charts.
+Mỗi endpoint AI đều có rate limit riêng để bảo vệ quota OpenRouter.
 """
 from typing import List, Optional
 
@@ -13,7 +13,7 @@ from app.api.dependencies import get_current_active_user
 from app.core.config import settings
 from app.core.rate_limit import rate_limit
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import AppUser
 from app.services.ai_service import AIService
 
 router = APIRouter(prefix="/ai", tags=["AI Agent"])
@@ -27,13 +27,26 @@ def get_ai_service(db: AsyncSession = Depends(get_db)) -> AIService:
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
-    use_sandbox: bool = False
+
+
+class ChartItem(BaseModel):
+    id: int
+    session_id: str
+    chart_type: str
+    chart_title: str
+    x_axis_label: Optional[str] = None
+    y_axis_label: Optional[str] = None
+    series_label: Optional[str] = None
+    config: dict
+    source_query: Optional[str] = None
+    created_at: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
     session_id: str
     reply: str
-    code_executed: Optional[str] = None
+    tool_calls: list = []
+    charts: List[ChartItem] = []
 
 
 class SessionItem(BaseModel):
@@ -55,15 +68,14 @@ class HistoryResponse(BaseModel):
 @router.post(
     "/chat",
     response_model=ChatResponse,
-    summary="Chat với AI agent (rate limit riêng)",
+    summary="Chat với AI agent (tool loop: execute_query + charting)",
 )
 async def chat(
     request: Request,
     payload: ChatRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: AppUser = Depends(get_current_active_user),
     service: AIService = Depends(get_ai_service),
 ):
-    """Chat không stream, có hỗ trợ chạy code Python trong E2B sandbox."""
     await rate_limit(
         request,
         limit=settings.RATE_LIMIT_AI_PER_MINUTE,
@@ -74,22 +86,20 @@ async def chat(
         user=current_user,
         message=payload.message,
         session_id=payload.session_id,
-        use_sandbox=payload.use_sandbox,
     )
     return ChatResponse(**result)
 
 
 @router.post(
     "/chat/stream",
-    summary="Chat với AI agent (stream, rate limit riêng)",
+    summary="Chat với AI agent (SSE stream, không chạy tool)",
 )
 async def chat_stream(
     request: Request,
     payload: ChatRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: AppUser = Depends(get_current_active_user),
     service: AIService = Depends(get_ai_service),
 ):
-    """Chat streaming từ OpenRouter (Server-Sent Events)."""
     await rate_limit(
         request,
         limit=settings.RATE_LIMIT_AI_PER_MINUTE,
@@ -126,10 +136,11 @@ async def chat_stream(
     summary="Danh sách phiên chat của user hiện tại",
 )
 async def list_sessions(
-    current_user: User = Depends(get_current_active_user),
+    current_user: AppUser = Depends(get_current_active_user),
     service: AIService = Depends(get_ai_service),
 ):
-    return await service.list_sessions(current_user)
+    rows = await service.list_sessions(current_user)
+    return [SessionItem(**r) for r in rows]
 
 
 @router.get(
@@ -140,7 +151,7 @@ async def list_sessions(
 async def get_history(
     session_id: str,
     limit: int = Query(50, ge=1, le=200),
-    current_user: User = Depends(get_current_active_user),
+    current_user: AppUser = Depends(get_current_active_user),
     service: AIService = Depends(get_ai_service),
 ):
     history = await service.get_chat_history(
@@ -150,3 +161,17 @@ async def get_history(
         session_id=session_id,
         history=[HistoryItem(**h) for h in history],
     )
+
+
+@router.get(
+    "/charts",
+    response_model=List[ChartItem],
+    summary="Danh sách chart đã sinh ra (theo session hoặc tất cả)",
+)
+async def list_charts(
+    session_id: Optional[str] = Query(None),
+    current_user: AppUser = Depends(get_current_active_user),
+    service: AIService = Depends(get_ai_service),
+):
+    rows = await service.list_charts(current_user, session_id=session_id)
+    return [ChartItem(**r) for r in rows]

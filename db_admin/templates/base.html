@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DB Admin Panel{% endblock %}</title>
+    <style>
+        :root {
+            --bg: #1a1b2e;
+            --card-bg: #242540;
+            --border: #3a3b5c;
+            --primary: #6c5ce7;
+            --primary-hover: #7d6ff0;
+            --success: #00b894;
+            --danger: #e17055;
+            --warning: #fdcb6e;
+            --text: #e0e0f0;
+            --text-muted: #9898b8;
+            --input-bg: #2d2e4a;
+            --hover-row: #2f3055;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .navbar .brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .navbar .brand::before {
+            content: '\1F6E1';
+            font-size: 1.3rem;
+        }
+        .navbar .nav-links {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        .navbar .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        .navbar .nav-links a:hover {
+            color: var(--text);
+            background: var(--input-bg);
+        }
+        .navbar .nav-links a.active {
+            color: var(--primary);
+            background: rgba(108, 92, 231, 0.15);
+        }
+        .btn-logout {
+            background: var(--danger) !important;
+            color: white !important;
+            font-weight: 600;
+        }
+        .btn-logout:hover {
+            opacity: 0.9;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card h3 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-card .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .stat-card .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        .stat-card.success .stat-value { color: var(--success); }
+        .stat-card.danger .stat-value { color: var(--danger); }
+        .stat-card.warning .stat-value { color: var(--warning); }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        th {
+            background: var(--input-bg);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover {
+            background: var(--hover-row);
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .table-wrapper thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            color: white;
+        }
+        .btn-primary { background: var(--primary); }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { opacity: 0.9; }
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 0.8rem;
+        }
+        .btn-success { background: var(--success); }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .btn-outline:hover {
+            background: var(--input-bg);
+            color: var(--text);
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--input-bg);
+            color: var(--text);
+            font-size: 0.9rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85rem;
+        }
+        select {
+            cursor: pointer;
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            border-left: 4px solid;
+        }
+        .alert-success { background: rgba(0, 184, 148, 0.1); border-color: var(--success); color: var(--success); }
+        .alert-danger { background: rgba(225, 112, 85, 0.1); border-color: var(--danger); color: var(--danger); }
+        .alert-warning { background: rgba(253, 203, 110, 0.1); border-color: var(--warning); color: var(--warning); }
+        .alert-info { background: rgba(108, 92, 231, 0.1); border-color: var(--primary); color: var(--primary); }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        .pagination a, .pagination span {
+            padding: 6px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .pagination a:hover {
+            background: var(--input-bg);
+            color: var(--text);
+        }
+        .pagination .current {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-success { background: rgba(0, 184, 148, 0.2); color: var(--success); }
+        .badge-danger { background: rgba(225, 112, 85, 0.2); color: var(--danger); }
+        .badge-primary { background: rgba(108, 92, 231, 0.2); color: var(--primary); }
+        .badge-warning { background: rgba(253, 203, 110, 0.2); color: var(--warning); }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 700px;
+            width: 95%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .modal h2 {
+            margin-bottom: 16px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        /* Search bar */
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .search-bar input, .search-bar select {
+            width: auto;
+            min-width: 150px;
+        }
+        .search-bar .btn { white-space: nowrap; }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* Null value */
+        .null-value {
+            color: var(--text-muted);
+            font-style: italic;
+            opacity: 0.5;
+        }
+
+        /* Redis logs */
+        .log-entry {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+        }
+        .log-entry .log-key {
+            font-weight: 700;
+            color: var(--primary);
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+        }
+        .log-entry .log-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin: 4px 0;
+        }
+        .log-entry .log-value {
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            color: var(--success);
+            word-break: break-all;
+            margin-top: 8px;
+            padding: 8px;
+            background: var(--bg);
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* SQL result */
+        .sql-result {
+            margin-top: 20px;
+        }
+        .sql-result .result-meta {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+        .sql-result table {
+            font-size: 0.8rem;
+        }
+        .sql-result .table-wrapper {
+            max-height: 400px;
+        }
+
+        /* Inline edit form */
+        .inline-edit-form {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .inline-edit-form input {
+            width: auto;
+            min-width: 100px;
+            padding: 4px 8px;
+            font-size: 0.85rem;
+        }
+
+        /* Add row form */
+        .add-row-form {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+        .add-row-form input {
+            width: auto;
+            min-width: 80px;
+            padding: 4px 8px;
+            font-size: 0.82rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar { padding: 0 12px; }
+            .navbar .nav-links { gap: 6px; }
+            .navbar .nav-links a { padding: 6px 8px; font-size: 0.8rem; }
+            .container { padding: 12px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* Login page specific */
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .login-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+        }
+        .login-card .login-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+        .login-card h1 {
+            margin-bottom: 8px;
+            font-size: 1.5rem;
+        }
+        .login-card .subtitle {
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+        }
+        .login-card input {
+            margin-bottom: 14px;
+        }
+        .login-card .btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    {% if session.get('admin_logged_in') %}
+    <nav class="navbar">
+        <a href="{{ url_for('dashboard') }}" class="brand">DB Admin</a>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">&#128451; Steam Schema</a>
+            <a href="{{ url_for('redis_logs') }}" class="{{ 'active' if request.endpoint == 'redis_logs' }}">Redis</a>
+            <a href="{{ url_for('pg_sql_form') }}" class="{{ 'active' if request.endpoint == 'pg_sql_form' }}">SQL Console</a>
+            <a href="{{ url_for('pg_create_table_form') }}" class="{{ 'active' if request.endpoint == 'pg_create_table_form' }}">+ New Table</a>
+            <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        // Confirm destructive actions
+        document.querySelectorAll('[data-confirm]').forEach(el => {
+            el.addEventListener('click', function(e) {
+                if (!confirm(this.dataset.confirm)) {
+                    e.preventDefault();
+                }
+            });
+        });
+
+        // Modal helpers
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+        // Close modal on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

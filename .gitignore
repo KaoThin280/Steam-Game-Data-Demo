@@ -76,3 +76,18 @@ docker-data/
 *.db
 *.sqlite
 *.sqlite3
+
+
+# ============== Front-end (Vercel) ==============
+node_modules/
+**/node_modules/
+dist/
+build/
+.next/
+.turbo/
+.cache/
+.vercel/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
