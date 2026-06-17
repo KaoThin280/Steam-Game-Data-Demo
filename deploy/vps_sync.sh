@@ -36,6 +36,12 @@ GIT_BRANCH="${GIT_BRANCH:-main}"
 WATCH_INTERVAL="${WATCH_INTERVAL:-60}"                   # seconds (when --watch)
 EXCLUDE_PATTERN="--exclude=db_admin/ --exclude=front_end/"
 
+# The LIVE_DIR is owned by www-data. rsync needs root to write into it.
+SUDO=""
+if [[ $EUID -ne 0 ]]; then
+    SUDO="sudo"
+fi
+
 # ---------- Functions ----------
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
@@ -48,20 +54,21 @@ sync_once() {
     # -a  : archive (recursive, preserves perms, symlinks, times)
     # --delete : remove files in LIVE that no longer exist in STAGING
     # --exclude : drop db_admin and front_end
-    rsync -a --delete $EXCLUDE_PATTERN \
+    # We MUST run rsync as root (or with sudo) because $LIVE_DIR is owned by www-data.
+    $SUDO rsync -a --delete $EXCLUDE_PATTERN \
         "$STAGING_DIR/" "$LIVE_DIR/"
 
     log "Restarting steam-api service..."
-    if systemctl list-unit-files | grep -q '^steam-api.service'; then
-        sudo systemctl restart steam-api || log "WARN: systemctl restart failed"
+    if $SUDO systemctl list-unit-files | grep -q '^steam-api.service'; then
+        $SUDO systemctl restart steam-api || log "WARN: systemctl restart failed"
     else
         log "INFO: steam-api.service not found, skipping restart"
     fi
 
     # Re-install requirements only if requirements.txt changed
-    if ! cmp -s "$STAGING_DIR/back_end/requirements.txt" "$LIVE_DIR/back_end/requirements.txt" 2>/dev/null; then
+    if ! $SUDO cmp -s "$STAGING_DIR/back_end/requirements.txt" "$LIVE_DIR/back_end/requirements.txt" 2>/dev/null; then
         log "requirements.txt changed, re-installing..."
-        sudo -u www-data "$LIVE_DIR/back_end/.venv/bin/pip" install \
+        $SUDO -u www-data "$LIVE_DIR/back_end/.venv/bin/pip" install \
             -r "$LIVE_DIR/back_end/requirements.txt" \
             || log "WARN: pip install failed"
     fi
