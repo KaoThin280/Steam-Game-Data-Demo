@@ -28,3 +28,9 @@ openai==1.58.1            # OpenRouter tương thích OpenAI SDK
 
 # ============== Utilities ==============
 python-dotenv==1.0.1
+
+# E2B sandbox for AI agent code execution
+e2b_code_interpreter>=1.0.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+seaborn>=0.13.0

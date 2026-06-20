@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select, text
 
 from app import __version__
-from app.api.v1 import admin, ai_agent, auth, dashboard, games
+from app.api.v1 import admin, ai_agent, auth, chat, dashboard, games
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.core.rate_limit import rate_limit
@@ -179,6 +179,7 @@ app.include_router(auth.router, prefix=API_V1)
 app.include_router(games.router, prefix=API_V1)
 app.include_router(dashboard.router, prefix=API_V1)
 app.include_router(ai_agent.router, prefix=API_V1)
+app.include_router(chat.router, prefix=API_V1)
 app.include_router(admin.router, prefix=API_V1)
 
 
