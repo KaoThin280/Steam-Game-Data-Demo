@@ -1,0 +1,40 @@
+{
+  "name": "steam-game-data-demo-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Front-end for the Steam Game Data Demo. Deployed on Vercel.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "swr": "^2.2.5",
+    "zustand": "^4.5.4",
+    "axios": "^1.7.4",
+    "chart.js": "^4.4.4",
+    "react-chartjs-2": "^5.2.0",
+    "lucide-react": "^0.428.0",
+    "clsx": "^2.1.1",
+    "react-hook-form": "^7.52.2",
+    "zod": "^3.23.8",
+    "@hookform/resolvers": "^3.9.0",
+    "date-fns": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.14",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.5",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.9",
+    "typescript": "^5.5.4"
+  }
+}

@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     E2B_TEMPLATE: str = "base"
     E2B_TIMEOUT: int = 60
 
+    # Sandbox artifacts dir (used by the agentic workflow)
+    TEMP_DATA_DIR: str = "temp_data"
+
     # ============== Steam (optional) ==============
     STEAM_API_KEY: str = ""
 
