@@ -1,0 +1,41 @@
+name: Deploy Backend to GCP VPS
+
+on:
+  push:
+    branches: [ main ] # Thay bằng master nếu repo của bạn dùng master
+    paths:
+      - 'back_end/**' # Kích hoạt khi có thay đổi trong thư mục back_end
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_IP }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          # 1. Di chuyển vào thư mục dự án trên VPS GCP của bạn
+          cd ~/my-project
+          
+          # 2. Kéo code mới về (chỉ kéo thư mục back_end theo cấu hình ban đầu)
+          git pull origin main
+          
+          # 3. Đi vào thư mục back_end
+          cd back_end
+          
+          # 4. Cài đặt các thư viện mới nếu có thay đổi trong requirements.txt
+          # (Khuyên dùng venv để quản lý thư viện Python trên VPS sạch sẽ hơn)
+          python3 -m venv venv || true
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          
+          # 5. Khởi động lại Server FastAPI (Chạy ngầm ở cổng 8000, không dùng --reload)
+          # Lệnh này sẽ tìm và tắt tiến trình uvicorn cũ đang chạy (nếu có) để tránh trùng cổng
+          fuser -k 8000/tcp || true
+          
+          # Chạy ngầm uvicorn bằng gunicorn hoặc nohup để không bị tắt khi script kết thúc
+          nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
