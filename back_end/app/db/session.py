@@ -90,15 +90,11 @@ _connect_args: dict = {
     },
 }
 
-# Detect Supabase pooler (Transaction mode on port 6543). asyncpg's prepared
-# statement cache breaks in Transaction mode pooler -> disable it.
-_is_pooler = (
-    "pooler.supabase.com" in _db_url
-    or ":6543" in _db_url
-)
-if _is_pooler:
-    _connect_args["prepared_statement_cache_size"] = 0
-    _connect_args["statement_cache_size"] = 0
+# ÉP BUỘC TẮT CACHE ĐỂ ĐẢM BẢO AN TOÀN TUYỆT ĐỐI KHI ĐI QUA PGBOUNCER/SUPAVISOR
+_connect_args["prepared_statement_cache_size"] = 0
+_connect_args["statement_cache_size"] = 0
+
+# Supabase requires SSL; pass a TLS context via connect_args.
 
 # Supabase requires SSL; pass a TLS context via connect_args.
 import ssl as _ssl
