@@ -14,7 +14,7 @@ jobs:
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.VPS_IP }}
-        username: ${{ secrets.VPS_USER }}
+        username: thinhthinhhay2002
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
           # 1. Di chuyển vào thư mục dự án trên VPS GCP của bạn
