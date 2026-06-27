@@ -12,14 +12,14 @@ import { classNames } from "@/utils/format";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email"),
-  password: z.string().min(6, "Min 6 characters"),
+  password: z.string().min(8, "Min 8 characters"),
 });
 
 const registerSchema = z.object({
   username: z.string().min(3, "Min 3 characters"),
   email: z.string().email("Invalid email"),
   full_name: z.string().optional(),
-  password: z.string().min(6, "Min 6 characters"),
+  password: z.string().min(8, "Min 8 characters"),
   confirm_password: z.string(),
 }).refine((d) => d.password === d.confirm_password, {
   message: "Passwords do not match",
