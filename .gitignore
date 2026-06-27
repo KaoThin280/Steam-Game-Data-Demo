@@ -93,3 +93,7 @@ next-env.d.ts
 .DS_Store
 Instruction.md
 test_api.py
+BE_log.txt
+debug_chat.py
+test_agentic_chat.py
+test_agentic_chat.py
