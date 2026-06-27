@@ -140,20 +140,19 @@ CREATE INDEX IF NOT EXISTS idx_refresh_expires ON refresh_tokens(expires_at);
 -- ============================================================================
 -- 4) STEAM GAMES (flattened metadata)
 -- ----------------------------------------------------------------------------
--- Comma-separated TEXT for array-like fields (publishers, developers, ...)
--- per SCHEMA_DOCUMENTATION.md
+-- Comma-separated TEXT for array-like fields (publishers, developers) only.
+-- (2026-Q2) Cột CSV supported_languages / categories / genres đã được
+-- loại bỏ để tiết kiệm storage. Nếu cần phân tích theo ngôn ngữ / category /
+-- genre, bổ sung các bảng junction riêng sau.
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS games (
     steam_appid          INTEGER PRIMARY KEY,
     name                 TEXT NOT NULL,
     is_free              BOOLEAN NOT NULL DEFAULT FALSE,
-    supported_languages  TEXT,
     required_age         INTEGER NOT NULL DEFAULT 0,
     release_date         DATE,
     publishers           TEXT,
     developers           TEXT,
-    categories           TEXT,
-    genres               TEXT,
     price_text           TEXT,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

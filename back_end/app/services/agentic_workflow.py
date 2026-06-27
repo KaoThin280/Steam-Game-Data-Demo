@@ -1,15 +1,24 @@
 """
-Agentic workflow for the Data Analyst chatbot.
+Agentic workflow for the Data Analyst chatbot (Python / E2B sandbox).
 
 Loop:
   1. Ask the LLM to classify the user query (needs_code?).
   2. If no code, return a plain chat response.
   3. If yes, ask for JSON tool_calls containing Python code.
-  4. Execute the code in E2B (up to 4 retries on failure).
+  4. Execute the code in E2B (up to MAX_RETRIES retries on failure).
   5. If new files are produced, register them as new tables and feed the
      updated data context back to the LLM for a final answer.
   6. Persist conversation turns to chat_histories (only metadata, never the
      full data values).
+
+User-facing contract:
+  - The user ONLY sees the final natural-language answer (user_response).
+  - Raw Python code, tool_call payloads, execution logs, and intermediate
+    errors are kept server-side for debugging but stripped from the
+    payload returned to the frontend.
+  - The execute_code tool returns a structured error ``{"success": false,
+    "error": "..."}`` whenever execution fails; the LLM reads the error and
+    may retry up to MAX_RETRIES times before the workflow gives up.
 """
 import asyncio
 import json
@@ -34,7 +43,8 @@ logger = logging.getLogger(__name__)
 class AgenticWorkflow:
     """Main coordinator for the data analyst chatbot."""
 
-    MAX_RETRIES = 4  # user requested <= 4 retries
+    # Maximum number of times the LLM may retry execute_code after an error.
+    MAX_RETRIES = 3
 
     def __init__(self, db: AsyncSession, user_id: int):
         self.db = db
@@ -52,7 +62,19 @@ class AgenticWorkflow:
         *,
         stream: bool = False,
     ) -> Dict[str, Any]:
-        """Run the full agentic workflow. Returns the final payload."""
+        """Run the full agentic workflow and return the user-facing payload.
+
+        The payload contains ONLY:
+          - ``status``: ``"success"`` or ``"error"``
+          - ``user_response``: the final natural-language answer (always
+            set, never the raw Python code, logs, or exception text)
+          - ``session_id``
+          - ``new_files``: artifact filenames produced by the sandbox
+
+        Raw ``code``, ``events`` (tool-call trace), ``logs`` and
+        ``error_message`` are kept server-side for logging/debugging but
+        NOT exposed to the frontend.
+        """
         self.last_query = user_query
         await self._save_chat("user", user_query, session_id)
 
@@ -83,12 +105,8 @@ class AgenticWorkflow:
             return await self._finalize(
                 session_id=session_id,
                 user_response=result["user_response"],
-                code=None,
                 new_files=[],
-                logs="",
-                retries_used=0,
-                events=[{"type": "classify", "needs_code": False, "reason": classification.get("reason", "")}],
-                error=None,
+                status="success",
             )
 
         # 2) Generate code (with retry on parse failure)
@@ -102,18 +120,19 @@ class AgenticWorkflow:
             # LLM may have replied in text; treat as final answer
             return await self._finalize(
                 session_id=session_id,
-                user_response=llm_result["user_response"] or "I couldn't determine an action for your request.",
-                code=None,
+                user_response=llm_result["user_response"]
+                or "Sorry, I did not understand the request. Could you rephrase it?",
                 new_files=[],
-                logs="",
-                retries_used=0,
-                events=[{"type": "no_tool_call", "raw": llm_result["raw"]}],
-                error=None,
+                status="success",
             )
 
-        # 3) Execute with retry loop
+        # 3) Execute with retry loop.
+        # The execute_code tool returns ``{"success": bool, "error": "..."}``
+        # so the LLM can read the error and self-correct. We retry up to
+        # MAX_RETRIES times after the first failure.
         attempt = 0
         last_error: Optional[str] = None
+        last_logs: str = ""
         execution_result: Dict[str, Any] = {}
         while attempt <= self.MAX_RETRIES:
             logger.info("E2B attempt %d/%d", attempt + 1, self.MAX_RETRIES + 1)
@@ -121,39 +140,54 @@ class AgenticWorkflow:
             execution_result = await E2BService.execute_from_tool_call(
                 tool_calls[0], files_to_mount=files_in_session
             )
-            if execution_result["success"]:
+            if execution_result.get("success"):
                 break
             last_error = execution_result.get("error", "Unknown error")
-            logger.warning("E2B attempt %d failed: %s", attempt + 1, last_error[:200])
-            if attempt < self.MAX_RETRIES:
-                # Ask the LLM to fix the code
-                fix_query = (
-                    f"The code I generated failed with this error:\n\n"
-                    f"{last_error}\n\n"
-                    "Please respond again with a JSON tool call "
-                    '{"tool": "execute_code", "code": "<corrected python>", "description": "<short>"}.'
-                )
-                fix_result = await LLMService.generate_code_with_tool_calls(
-                    query=fix_query,
-                    data_context_summary=data_context,
-                    installed_packages=self.installed_packages,
-                )
-                if fix_result["tool_calls"]:
-                    tool_calls = fix_result["tool_calls"]
-                attempt += 1
-            else:
+            last_logs = execution_result.get("logs", "")
+            logger.warning(
+                "E2B attempt %d failed: %s", attempt + 1, (last_error or "")[:200]
+            )
+            if attempt >= self.MAX_RETRIES:
                 break
+            # Ask the LLM to fix the code (INTERNAL retry - user never sees
+            # this back-and-forth).
+            fix_query = (
+                "The Python code you just produced failed in the sandbox with "
+                "this error (this is INTERNAL feedback, do not mention it to "
+                "the user):\n\n"
+                f"{last_error}\n\n"
+                "Diagnose the issue and reply again with a JSON tool call "
+                '{"tool": "execute_code", "code": "<corrected python>", '
+                '"description": "<short>"}. Make sure the code only uses the '
+                "pre-installed packages."
+            )
+            fix_result = await LLMService.generate_code_with_tool_calls(
+                query=fix_query,
+                data_context_summary=data_context,
+                installed_packages=self.installed_packages,
+            )
+            if fix_result["tool_calls"]:
+                tool_calls = fix_result["tool_calls"]
+            attempt += 1
 
         if not execution_result.get("success"):
+            # Don't leak raw traceback to the user. Ask the LLM for a polite
+            # apology/explanation; if that fails too, return a generic
+            # fallback message.
+            friendly = await self._friendly_failure_message(
+                user_query=user_query,
+                error=last_error or "unknown",
+                retries=self.MAX_RETRIES + 1,
+            )
             return await self._finalize(
                 session_id=session_id,
-                user_response=f"Execution failed after {attempt + 1} attempts. Last error: {last_error}",
-                code=tool_calls[0].get("code"),
+                user_response=friendly,
                 new_files=[],
-                logs=execution_result.get("logs", ""),
-                retries_used=attempt,
-                events=[],
-                error=last_error,
+                status="error",
+                server_error=last_error,
+                server_logs=last_logs,
+                server_code=tool_calls[0].get("code") if tool_calls else None,
+                server_retries=attempt,
             )
 
         # 4) Detect newly produced files
@@ -161,38 +195,103 @@ class AgenticWorkflow:
         for f in new_files:
             fp = str(temp_dir / f)
             if not session_manager.get_table_file(os.path.splitext(f)[0]):
-                ctx = await DataProcessor.extract_data_context_async(fp)
-                session_manager.add_table(
-                    table_name=os.path.splitext(f)[0],
-                    file_path=fp,
-                    columns=ctx.columns,
-                )
-                logger.info("Registered new table from E2B: %s", f)
+                try:
+                    ctx = await DataProcessor.extract_data_context_async(fp)
+                    session_manager.add_table(
+                        table_name=os.path.splitext(f)[0],
+                        file_path=fp,
+                        columns=ctx.columns,
+                    )
+                    logger.info("Registered new table from E2B: %s", f)
+                except Exception as exc:
+                    logger.warning("Could not register %s as table: %s", f, exc)
 
-        # 5) Build final user-facing answer (only summary, never full data).
-        new_context = session_manager.get_all_tables_info()
-        logs = execution_result.get("logs", "")
+        # 5) Build final user-facing answer via the LLM so the user sees a
+        # natural-language summary of the execution (NOT raw code, logs or
+        # row dumps).
         results_raw = execution_result.get("results", [])
-        summary_parts: List[str] = []
-        if llm_result.get("user_response"):
-            summary_parts.append(llm_result["user_response"])
-        if logs:
-            summary_parts.append(f"--- Execution log ---\n{logs}")
-        for r in results_raw[:5]:
-            summary_parts.append(f"--- Result ---\n{r}")
-        if not summary_parts:
-            summary_parts.append("Code executed successfully.")
-        summary = "\n\n".join(summary_parts)
+        user_response = await self._summarise_execution(
+            user_query=user_query,
+            llm_first_answer=llm_result.get("user_response"),
+            execution_results=results_raw,
+            new_files=new_files,
+        )
 
         return await self._finalize(
             session_id=session_id,
-            user_response=summary,
-            code=tool_calls[0].get("code"),
+            user_response=user_response,
             new_files=new_files,
-            logs=logs,
-            retries_used=attempt,
-            events=[{"type": "executed", "retries": attempt, "new_files": new_files}],
-            error=None,
+            status="success",
+            server_code=tool_calls[0].get("code") if tool_calls else None,
+            server_logs=execution_result.get("logs", ""),
+            server_retries=attempt,
+        )
+
+    async def _summarise_execution(
+        self,
+        *,
+        user_query: str,
+        llm_first_answer: Optional[str],
+        execution_results: List[str],
+        new_files: List[str],
+    ) -> str:
+        """Use the LLM to turn raw sandbox output into a natural-language reply."""
+        results_preview = "\n".join(str(r) for r in execution_results[:5])[:2000]
+        files_note = (
+            f"Artifacts saved: {', '.join(new_files)}." if new_files else ""
+        )
+        prompt = (
+            f"The user asked: {user_query}\n\n"
+            f"Initial code-generation reply (if any): {llm_first_answer or '(none)'}\n\n"
+            f"Sandbox printed the following values:\n{results_preview or '(no stdout)'}\n\n"
+            f"{files_note}\n\n"
+            "Write a concise natural-language answer for the user (in the user's "
+            "language - Vietnamese if the question is in Vietnamese). "
+            "Do NOT mention Python code, sandbox, tools, retries, or errors. "
+            "Do NOT paste raw code. Show only the values that matter."
+        )
+        try:
+            summary = await LLMService.generate_chat_response(
+                query=prompt,
+                data_context_summary=session_manager.get_all_tables_info(),
+            )
+            return (summary.get("user_response") or "").strip()
+        except Exception as exc:
+            logger.warning("Could not summarise execution: %s", exc)
+            # Fallback: a short message so the user always gets something.
+            return "Analysis finished. Please open the chart or attached file for details."
+
+    async def _friendly_failure_message(
+        self,
+        *,
+        user_query: str,
+        error: str,
+        retries: int,
+    ) -> str:
+        """Generate a user-friendly apology when execution keeps failing."""
+        try:
+            prompt = (
+                f"The user asked: {user_query}\n\n"
+                f"The system tried to run the analysis {retries} times but each "
+                f"attempt failed with: {error[:500]}\n\n"
+                "Reply to the user in plain natural language (Vietnamese if the "
+                "question is in Vietnamese). Apologise briefly, explain in general "
+                "terms what went wrong (e.g. data not available, query too complex), "
+                "and suggest a simpler alternative question. Do NOT mention Python, "
+                "sandboxes, retries, or internal tooling."
+            )
+            result = await LLMService.generate_chat_response(
+                query=prompt,
+                data_context_summary=session_manager.get_all_tables_info(),
+            )
+            msg = (result.get("user_response") or "").strip()
+            if msg:
+                return msg
+        except Exception as exc:
+            logger.warning("Could not produce friendly failure message: %s", exc)
+        return (
+            "Sorry, the system could not complete this request after several "
+            "attempts. Please try a shorter question with less detail."
         )
 
     # ------------------------------------------------------------------
@@ -237,24 +336,33 @@ class AgenticWorkflow:
         *,
         session_id: str,
         user_response: str,
-        code: Optional[str],
         new_files: List[str],
-        logs: str,
-        retries_used: int,
-        events: List[Dict[str, Any]],
-        error: Optional[str],
+        status: str,
+        server_code: Optional[str] = None,
+        server_logs: str = "",
+        server_retries: int = 0,
+        server_error: Optional[str] = None,
     ) -> Dict[str, Any]:
+        """Save the assistant turn and return the user-facing payload.
+
+        The returned dict is the ONLY thing the frontend sees. Raw code,
+        logs, events and error messages stay on the server (logged for
+        debugging) and are intentionally omitted from the response.
+        """
         # Save the assistant's final response (truncated to 8KB).
         await self._save_chat("assistant", user_response[:8000], session_id)
+        # Server-side log for debugging (not sent to the user).
+        if server_error:
+            logger.warning(
+                "agentic workflow failed after %d retries: %s",
+                server_retries,
+                server_error[:300],
+            )
         return {
-            "status": "error" if error else "success",
+            "status": status,
+            "session_id": session_id,
             "user_response": user_response,
-            "code": code,
             "new_files": new_files,
-            "logs": logs,
-            "retries_used": retries_used,
-            "events": events,
-            "error_message": error,
         }
 
     # Convenience: ask the LLM to run a SQL query through the read-only gateway.

@@ -53,13 +53,10 @@ class SessionManager:
                 "steam_appid": {"dtype": "INTEGER", "business_meaning": "Unique Steam application id (PK)"},
                 "name": {"dtype": "TEXT", "business_meaning": "Game title"},
                 "is_free": {"dtype": "BOOLEAN", "business_meaning": "True if the game is free-to-play"},
-                "supported_languages": {"dtype": "TEXT", "business_meaning": "Comma-separated language list"},
                 "required_age": {"dtype": "INTEGER", "business_meaning": "Minimum required age"},
                 "release_date": {"dtype": "DATE", "business_meaning": "Date the game was released"},
                 "publishers": {"dtype": "TEXT", "business_meaning": "Comma-separated publisher names"},
                 "developers": {"dtype": "TEXT", "business_meaning": "Comma-separated developer names"},
-                "categories": {"dtype": "TEXT", "business_meaning": "Comma-separated category list"},
-                "genres": {"dtype": "TEXT", "business_meaning": "Comma-separated genre list"},
                 "price_text": {"dtype": "TEXT", "business_meaning": "Human-readable price string"},
                 "created_at": {"dtype": "TIMESTAMPTZ", "business_meaning": "Row created at"},
             },
@@ -92,6 +89,54 @@ class SessionManager:
                 "personaname": {"dtype": "TEXT", "business_meaning": "Steam display name"},
                 "num_games_owned": {"dtype": "INTEGER", "business_meaning": "Number of games owned"},
                 "created_at": {"dtype": "TIMESTAMPTZ", "business_meaning": "Row created at"},
+            },
+        )
+        self.tables["categories"] = TableInfo(
+            name="categories",
+            source="sql",
+            columns={
+                "id": {"dtype": "SERIAL", "business_meaning": "Surrogate key (PK)"},
+                "name": {"dtype": "TEXT", "business_meaning": "Category name (e.g. Single-player, Multi-player)"},
+            },
+        )
+        self.tables["genres"] = TableInfo(
+            name="genres",
+            source="sql",
+            columns={
+                "id": {"dtype": "SERIAL", "business_meaning": "Surrogate key (PK)"},
+                "name": {"dtype": "TEXT", "business_meaning": "Genre name (e.g. Action, Indie)"},
+            },
+        )
+        self.tables["languages"] = TableInfo(
+            name="languages",
+            source="sql",
+            columns={
+                "id": {"dtype": "SERIAL", "business_meaning": "Surrogate key (PK)"},
+                "name": {"dtype": "TEXT", "business_meaning": "Language name"},
+            },
+        )
+        self.tables["game_categories"] = TableInfo(
+            name="game_categories",
+            source="sql",
+            columns={
+                "steam_appid": {"dtype": "INTEGER", "business_meaning": "FK -> games.steam_appid"},
+                "category_id": {"dtype": "INTEGER", "business_meaning": "FK -> categories.id"},
+            },
+        )
+        self.tables["game_genres"] = TableInfo(
+            name="game_genres",
+            source="sql",
+            columns={
+                "steam_appid": {"dtype": "INTEGER", "business_meaning": "FK -> games.steam_appid"},
+                "genre_id": {"dtype": "INTEGER", "business_meaning": "FK -> genres.id"},
+            },
+        )
+        self.tables["game_languages"] = TableInfo(
+            name="game_languages",
+            source="sql",
+            columns={
+                "steam_appid": {"dtype": "INTEGER", "business_meaning": "FK -> games.steam_appid"},
+                "language_id": {"dtype": "INTEGER", "business_meaning": "FK -> languages.id"},
             },
         )
 

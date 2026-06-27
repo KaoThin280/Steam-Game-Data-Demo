@@ -102,14 +102,8 @@ function GameHeader({ game }: { game: Game }) {
         <Pair label="Released" value={formatDate(game.release_date)} />
         <Pair label="Price" value={game.price_text || (game.is_free ? "Free" : "-")} />
         <Pair label="Required age" value={String(game.required_age)} />
-        <Pair label="Genres" value={splitCsv(game.genres).join(", ") || "-"} />
-        <Pair label="Categories" value={splitCsv(game.categories).join(", ") || "-"} />
         <Pair label="Developers" value={splitCsv(game.developers).join(", ") || "-"} />
         <Pair label="Publishers" value={splitCsv(game.publishers).join(", ") || "-"} />
-        <Pair
-          label="Languages"
-          value={splitCsv(game.supported_languages).slice(0, 5).join(", ") || "-"}
-        />
       </dl>
     </header>
   );

@@ -38,17 +38,17 @@ export interface RegisterPayload {
 }
 
 // ---------- Games ----------
+// NOTE: schema backend đã loại bỏ các cột CSV
+// (supported_languages / categories / genres) khỏi bảng public.games
+// để tiết kiệm storage. FE không còn hiển thị / lọc theo các field này.
 export interface Game {
   steam_appid: number;
   name: string;
   is_free: boolean;
-  supported_languages: string | null;
   required_age: number;
   release_date: string | null;
   publishers: string | null;
   developers: string | null;
-  categories: string | null;
-  genres: string | null;
   price_text: string | null;
   created_at: string | null;
 }
@@ -113,7 +113,10 @@ export interface OverviewStats {
 }
 
 export interface DistributionItem {
-  label: string;
+  label?: string;
+  genre?: string;
+  language?: string;
+  year?: number;
   count: number;
 }
 
@@ -156,6 +159,7 @@ export interface AiChartSpec {
   config: {
     labels: string[];
     datasets: Array<{ label: string; data: number[]; [k: string]: unknown }>;
+    options?: Record<string, unknown>;
   };
   source_query?: string | null;
   notes?: string | null;
@@ -166,7 +170,22 @@ export interface ChatMessage {
   id?: string;
   role: "user" | "assistant" | "system";
   content: string;
+  /**
+   * Rendered charts (Chart.js specs). Backend may attach these even though
+   * the raw tool_calls are hidden.
+   */
   charts?: AiChartSpec[];
+  /**
+   * Sandbox-generated files (.html = interactive Plotly, .png = static image)
+   * accessible at /api/v1/temp_data/{filename}.
+   */
+  sandboxFiles?: string[];
+  /**
+   * @deprecated Internal-only. The backend strips tool_calls from the
+   * payload so the user never sees raw SQL / JSON tool arguments. This
+   * field is kept as optional for backwards compatibility but is no
+   * longer populated by the server.
+   */
   tool_calls?: Array<{ name: string; result: unknown }>;
   created_at?: string;
 }
@@ -181,21 +200,25 @@ export interface ChatRequestPayload {
   session_id?: string;
 }
 
+/**
+ * Response from POST /api/v1/ai/chat (SQL + Chart agent).
+ *
+ * The user only sees ``reply`` (natural-language) and ``charts`` (rendered
+ * Chart.js specs). Internal ``tool_calls`` are intentionally omitted from
+ * the server response.
+ */
+export interface WorkflowEvent {
+  stage: string;
+  message: string;
+  type: string;
+}
+
 export interface ChatResponse {
   session_id: string;
   reply: string;
-  tool_calls: Array<{ name: string; arguments: unknown; result: unknown }>;
   charts: AiChartSpec[];
+  sandbox_files: string[];
+  workflow_events: WorkflowEvent[];
+  status?: "success" | "error";
 }
 
-// ---------- E2B agentic workflow ----------
-export interface E2BChatResponse {
-  status: "success" | "error";
-  user_response: string;
-  code?: string | null;
-  new_files: string[];
-  logs?: string;
-  retries_used: number;
-  events: Array<Record<string, unknown>>;
-  error_message?: string | null;
-}

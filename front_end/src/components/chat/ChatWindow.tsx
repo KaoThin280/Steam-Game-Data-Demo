@@ -1,23 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Eraser, Send, Terminal, Cpu } from "lucide-react";
+import { Eraser, Send } from "lucide-react";
 
 import { ChatMessage } from "@/components/chat/ChatMessage";
-import { useChat, type ChatMode } from "@/hooks/useChat";
+import { useChat } from "@/hooks/useChat";
 import { classNames } from "@/utils/format";
 
 interface ChatWindowProps {
   /** Optional fixed-height container. Default fills its parent. */
   className?: string;
-  /** Default chat mode: "agent" (SQL+Chart) or "e2b" (Python sandbox). */
-  defaultMode?: ChatMode;
 }
 
-export function ChatWindow({ className, defaultMode }: ChatWindowProps) {
-  const { messages, send, reset, mode, setMode, isSending } = useChat({
-    defaultMode,
-  });
+export function ChatWindow({ className }: ChatWindowProps) {
+  const { messages, send, reset, isSending, workflowEvents } = useChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -43,20 +39,7 @@ export function ChatWindow({ className, defaultMode }: ChatWindowProps) {
       )}
     >
       <header className="flex items-center justify-between gap-2 border-b border-white/5 px-3 py-2 text-xs">
-        <div className="flex items-center gap-2">
-          <ModeButton
-            active={mode === "agent"}
-            onClick={() => setMode("agent")}
-            icon={<Terminal className="h-3.5 w-3.5" />}
-            label="SQL + Chart"
-          />
-          <ModeButton
-            active={mode === "e2b"}
-            onClick={() => setMode("e2b")}
-            icon={<Cpu className="h-3.5 w-3.5" />}
-            label="Python (E2B)"
-          />
-        </div>
+        <span className="text-white/70">Ask the AI to query, analyse, or visualise Steam data</span>
         <button
           type="button"
           onClick={reset}
@@ -72,7 +55,8 @@ export function ChatWindow({ className, defaultMode }: ChatWindowProps) {
           <div className="grid h-full place-items-center text-sm text-white/40">
             Ask anything about Steam games, reviews, or statistics.
             <br />
-            Try: "Top 10 genres by count", or "Monthly reviews trend for 2023".
+            Try: "Top 10 genres by count", or "Monthly reviews trend for 2023",
+            or "Analyse review sentiment for top games".
           </div>
         )}
         {messages.map((m, i) => (
@@ -81,7 +65,7 @@ export function ChatWindow({ className, defaultMode }: ChatWindowProps) {
         {isSending && (
           <div className="my-2 inline-flex items-center gap-2 rounded-md border border-white/10 bg-bg-soft px-3 py-2 text-xs text-white/60">
             <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-            {mode === "agent" ? "Generating response..." : "Running on E2B..."}
+            Analysing data, running code, generating response...
           </div>
         )}
       </div>
@@ -97,11 +81,7 @@ export function ChatWindow({ className, defaultMode }: ChatWindowProps) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={2}
-          placeholder={
-            mode === "agent"
-              ? "Ask the AI to query or chart Steam data..."
-              : "Ask the AI to run Python on the data..."
-          }
+          placeholder="Ask the AI to query, chart, or analyse Steam data..."
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -120,33 +100,5 @@ export function ChatWindow({ className, defaultMode }: ChatWindowProps) {
         </button>
       </form>
     </div>
-  );
-}
-
-function ModeButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={classNames(
-        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px]",
-        active
-          ? "border-accent/40 bg-accent/20 text-accent"
-          : "border-white/10 text-white/70 hover:bg-white/5"
-      )}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
   );
 }

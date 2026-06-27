@@ -59,6 +59,7 @@ export function ChartRenderer({ spec, height = 320 }: ChartRendererProps) {
   const ctype = (spec.chart_type || "bar").toLowerCase();
   const resolvedType: ChartType = ctype === "area" ? "line" : (ctype as ChartType);
 
+  // Merge AI-provided config with defaults — AI colors/options take precedence
   const data: ChartData = useMemo(
     () => ({
       labels: spec.config.labels,
@@ -70,15 +71,19 @@ export function ChartRenderer({ spec, height = 320 }: ChartRendererProps) {
     [spec.config, ctype]
   );
 
+  // Use AI-provided options if present, otherwise fall back to defaults
   const options: ChartOptions = useMemo(() => {
+    const aiOptions = spec.config.options || {};
     const isLinear = resolvedType === "bar" || resolvedType === "line"
       || resolvedType === "scatter";
     return {
       responsive: true,
       maintainAspectRatio: false,
+      ...aiOptions,
       plugins: {
         legend: { display: true, position: "bottom" as const },
         title: { display: false },
+        ...(aiOptions.plugins || {}),
       },
       scales: isLinear
         ? {
@@ -87,17 +92,19 @@ export function ChartRenderer({ spec, height = 320 }: ChartRendererProps) {
                 ? { display: true, text: spec.x_axis_label }
                 : undefined,
               ticks: { autoSkip: true, maxRotation: 45, minRotation: 0 },
+              ...((aiOptions.scales as Record<string, unknown>)?.["x"] as Record<string, unknown> || {}),
             },
             y: {
               title: spec.y_axis_label
                 ? { display: true, text: spec.y_axis_label }
                 : undefined,
               beginAtZero: true,
+              ...((aiOptions.scales as Record<string, unknown>)?.["y"] as Record<string, unknown> || {}),
             },
           }
-        : undefined,
+        : aiOptions.scales || undefined,
     };
-  }, [resolvedType, spec.x_axis_label, spec.y_axis_label]);
+  }, [resolvedType, spec.x_axis_label, spec.y_axis_label, spec.config.options]);
 
   const cfg: ChartConfiguration = {
     type: resolvedType,

@@ -51,7 +51,7 @@ function DashboardView() {
       </section>
 
       <aside className="min-h-[640px] xl:sticky xl:top-16 xl:h-[calc(100vh-4rem)]">
-        <ChatWindow defaultMode="agent" />
+        <ChatWindow />
       </aside>
     </div>
   );
@@ -113,11 +113,11 @@ function GamesTab() {
               x_axis_label: "Genre",
               y_axis_label: "Games",
               config: {
-                labels: (genres.data ?? []).slice(0, 15).map((g) => g.label),
-                datasets: [
-                  {
-                    label: "Games",
-                    data: (genres.data ?? []).slice(0, 15).map((g) => g.count),
+                  labels: (genres.data ?? []).slice(0, 15).map((g) => g.genre ?? g.label),
+                  datasets: [
+                    {
+                      label: "Games",
+                      data: (genres.data ?? []).slice(0, 15).map((g) => g.count),
                   },
                 ],
               },
@@ -136,7 +136,7 @@ function GamesTab() {
                 labels: (years.data ?? [])
                   .slice()
                   .reverse()
-                  .map((y) => String(y.label)),
+                  .map((y) => String(y.year ?? y.label ?? "")),
                 datasets: [
                   {
                     label: "Games",
@@ -157,11 +157,11 @@ function GamesTab() {
               chart_type: "doughnut",
               chart_title: "Languages by supported game count",
               config: {
-                labels: (languages.data ?? []).slice(0, 10).map((l) => l.label),
-                datasets: [
-                  {
-                    label: "Games",
-                    data: (languages.data ?? []).slice(0, 10).map((l) => l.count),
+                  labels: (languages.data ?? []).slice(0, 10).map((l) => l.language ?? l.label),
+                  datasets: [
+                    {
+                      label: "Games",
+                      data: (languages.data ?? []).slice(0, 10).map((l) => l.count),
                   },
                 ],
               },
@@ -172,10 +172,10 @@ function GamesTab() {
           <DataTable<DistributionItem>
             rows={genres.data ?? []}
             columns={[
-              { key: "label", header: "Genre" },
+              { key: "genre", header: "Genre", accessor: (r) => r.genre ?? r.label ?? "-" },
               { key: "count", header: "Games", accessor: (r) => formatNumber(r.count) },
             ]}
-            rowKey={(r) => `${r.label}-${r.count}`}
+            rowKey={(r) => `${r.genre ?? r.label}-${r.count}`}
             isLoading={genres.isLoading}
           />
         </Card>
@@ -214,7 +214,7 @@ function UsersTab() {
               x_axis_label: "Language",
               y_axis_label: "Games",
               config: {
-                labels: (languages.data ?? []).slice(0, 10).map((l) => l.label),
+                labels: (languages.data ?? []).slice(0, 10).map((l) => l.language ?? l.label),
                 datasets: [
                   {
                     label: "Games",

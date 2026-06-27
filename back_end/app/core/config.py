@@ -59,8 +59,8 @@ class Settings(BaseSettings):
     # ============== OpenRouter AI ==============
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    OPENROUTER_MODEL: str = "deepseek/deepseek-chat-v3.1:free"
-    OPENROUTER_FALLBACK_MODEL: str = "meta-llama/llama-3.3-70b-instruct:free"
+    OPENROUTER_MODEL: str = "deepseek/deepseek-v4-flash"
+    OPENROUTER_FALLBACK_MODEL: str = "openrouter/owl-alpha"
 
     # ============== E2B Sandbox ==============
     E2B_API_KEY: str = ""

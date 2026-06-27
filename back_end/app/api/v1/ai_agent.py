@@ -42,11 +42,27 @@ class ChartItem(BaseModel):
     created_at: Optional[str] = None
 
 
+class WorkflowEvent(BaseModel):
+    stage: str
+    message: str
+    type: str = "info"
+
+
 class ChatResponse(BaseModel):
+    """Response shape sent to the frontend.
+
+    NOTE: internal ``tool_calls`` (raw SQL / chart payloads / errors) are
+    intentionally NOT exposed here. The frontend only gets the final
+    natural-language ``reply`` and the rendered ``charts``. Tool details
+    stay on the server for logging/debugging.
+    """
+
     session_id: str
     reply: str
-    tool_calls: list = []
     charts: List[ChartItem] = []
+    sandbox_files: List[str] = []
+    workflow_events: List[WorkflowEvent] = []
+    status: str = "success"
 
 
 class SessionItem(BaseModel):

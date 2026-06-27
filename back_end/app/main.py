@@ -7,10 +7,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 
 from app import __version__
-from app.api.v1 import admin, ai_agent, auth, chat, dashboard, games
+from app.api.v1 import admin, ai_agent, auth, chat, dashboard, data_files, games
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.core.rate_limit import rate_limit
@@ -181,6 +182,14 @@ app.include_router(dashboard.router, prefix=API_V1)
 app.include_router(ai_agent.router, prefix=API_V1)
 app.include_router(chat.router, prefix=API_V1)
 app.include_router(admin.router, prefix=API_V1)
+app.include_router(data_files.router, prefix=API_V1)
+
+# ============== Static files (temp_data for E2B-generated artifacts) ==============
+import os
+from pathlib import Path
+temp_data_dir = Path(settings.TEMP_DATA_DIR)
+temp_data_dir.mkdir(parents=True, exist_ok=True)
+app.mount(f"{API_V1}/temp_data", StaticFiles(directory=str(temp_data_dir)), name="temp_data")
 
 
 # ============== Health ==============

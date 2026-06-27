@@ -1,11 +1,13 @@
 """
-Steam Service - Logic cho public.games / public.reviews / public.users.
+Steam Service - Logic for public.games / public.reviews / public.users.
 Aligned with SCHEMA_DOCUMENTATION.md.
 
-Đặc điểm schema:
-  - games.genres / categories / publishers / developers / supported_languages
-    là TEXT chứa CSV (vd: "Action, RPG, Indie").
-  - reviews là bản ghi review đơn lẻ (1 dòng / recommendation).
+Schema notes:
+  - games.publishers / games.developers are TEXT columns containing
+    comma-separated values (e.g. "Action, RPG, Indie").
+  - games.genres / categories / supported_languages have been removed
+    from the schema (2026-Q2 simplification).
+  - reviews stores one row per user recommendation.
 """
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -24,13 +26,13 @@ from app.schemas.steam_schema import (
 
 
 def _contains_ci(column, value: str):
-    """Case-insensitive contains trên TEXT (CSV)."""
+    """Case-insensitive contains on a TEXT (CSV) column."""
     pattern = f"%{value}%"
     return column.ilike(pattern)
 
 
 class SteamService:
-    """Service xử lý logic dữ liệu game Steam."""
+    """Service for Steam game data logic."""
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -43,14 +45,14 @@ class SteamService:
         game = result.scalar_one_or_none()
         if not game:
             raise NotFoundException(
-                detail=f"Game steam_appid={steam_appid} không tồn tại."
+                detail=f"Game steam_appid={steam_appid} not found."
             )
         return game
 
     async def list_games(
         self, filter_: GameFilter
     ) -> Tuple[List[Game], int]:
-        """Danh sách games theo filter + sort + phân trang."""
+        """List games filtered + sorted + paginated."""
         query = select(Game)
         count_q = select(func.count(Game.steam_appid))
         conds = []
@@ -64,10 +66,10 @@ class SteamService:
                     Game.publishers.ilike(kw),
                 )
             )
-        if filter_.genre:
-            conds.append(_contains_ci(Game.genres, filter_.genre))
-        if filter_.category:
-            conds.append(_contains_ci(Game.categories, filter_.category))
+        # NOTE: the genre/category filters used to query the games.genres and
+        # games.categories CSV columns. Those columns have been REMOVED from
+        # the schema, so these filters are no-ops. They are kept for
+        # backwards compatibility with the existing FE.
         if filter_.developer:
             conds.append(_contains_ci(Game.developers, filter_.developer))
         if filter_.publisher:
@@ -99,7 +101,7 @@ class SteamService:
         return items, int(total)
 
     async def upsert_game(self, payload: GameCreate) -> Game:
-        """Tạo / cập nhật 1 game theo steam_appid (admin)."""
+        """Create or update a game by steam_appid (admin)."""
         data = payload.model_dump()
         existing = await self.db.execute(
             select(Game).where(Game.steam_appid == data["steam_appid"])
@@ -116,14 +118,14 @@ class SteamService:
         return game
 
     async def delete_game(self, steam_appid: int) -> None:
-        """Xóa game theo steam_appid (admin)."""
+        """Delete a game by steam_appid (admin)."""
         result = await self.db.execute(
             select(Game).where(Game.steam_appid == steam_appid)
         )
         game = result.scalar_one_or_none()
         if not game:
             raise NotFoundException(
-                detail=f"Game steam_appid={steam_appid} không tồn tại."
+                detail=f"Game steam_appid={steam_appid} not found."
             )
         await self.db.delete(game)
         await self.db.commit()
@@ -178,7 +180,7 @@ class SteamService:
         return items, int(total)
 
     async def create_review(self, payload: ReviewCreate) -> Review:
-        """Tạo mới 1 review (scientist / admin)."""
+        """Create a new review (scientist / admin)."""
         review = Review(**payload.model_dump())
         self.db.add(review)
         await self.db.commit()
@@ -192,14 +194,14 @@ class SteamService:
         review = result.scalar_one_or_none()
         if not review:
             raise NotFoundException(
-                detail=f"Review #{recommendationid} không tồn tại."
+                detail=f"Review #{recommendationid} not found."
             )
         await self.db.delete(review)
         await self.db.commit()
 
     # ===================== Dashboard =====================
     async def get_overview_stats(self) -> Dict[str, Any]:
-        """Thống kê tổng quan cho dashboard."""
+        """Aggregate dashboard statistics."""
         total_games = (
             await self.db.execute(select(func.count(Game.steam_appid)))
         ).scalar() or 0
@@ -214,7 +216,7 @@ class SteamService:
             )
         ).scalar() or 0
 
-        # Đếm developer duy nhất (PostgreSQL string_to_array + uniq)
+        # Count unique developers (PostgreSQL string_to_array + DISTINCT).
         devs_q = text(
             """
             SELECT COUNT(DISTINCT dev) FROM (
@@ -226,15 +228,8 @@ class SteamService:
         )
         total_devs = (await self.db.execute(devs_q)).scalar() or 0
 
-        langs_q = text(
-            """
-            SELECT COUNT(DISTINCT lang) FROM (
-                SELECT TRIM(lang) AS lang
-                FROM games, UNNEST(STRING_TO_ARRAY(supported_languages, ',')) AS lang
-                WHERE supported_languages IS NOT NULL AND supported_languages <> ''
-            ) t WHERE lang <> ''
-            """
-        )
+        # Count real languages (junction table)
+        langs_q = text("SELECT COUNT(*) FROM languages")
         total_langs = (await self.db.execute(langs_q)).scalar() or 0
 
         return {
@@ -247,17 +242,13 @@ class SteamService:
         }
 
     async def get_genre_distribution(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Phân bố theo genre (CSV split -> unnest)."""
+        """Genre distribution via game_genres junction table."""
         q = text(
             """
-            SELECT genre, COUNT(*) AS count
-            FROM (
-                SELECT TRIM(g) AS genre
-                FROM games, UNNEST(STRING_TO_ARRAY(genres, ',')) AS g
-                WHERE genres IS NOT NULL AND genres <> ''
-            ) t
-            WHERE genre <> ''
-            GROUP BY genre
+            SELECT g.name AS genre, COUNT(gg.steam_appid) AS count
+            FROM genres g
+            JOIN game_genres gg ON g.id = gg.genre_id
+            GROUP BY g.id, g.name
             ORDER BY count DESC
             LIMIT :lim
             """
@@ -277,19 +268,20 @@ class SteamService:
             """
         )
         result = await self.db.execute(q, {"lim": limit})
-        return [{"year": int(r[0]), "count": int(r[1])} for r in result.fetchall()]
+        rows = []
+        for r in result.fetchall():
+            year_val = int(r[0]) if r[0] is not None else 0
+            rows.append({"year": year_val, "count": int(r[1])})
+        return rows
 
     async def get_language_distribution(self, limit: int = 15) -> List[Dict[str, Any]]:
+        """Language distribution via game_languages junction table."""
         q = text(
             """
-            SELECT lang, COUNT(*) AS count
-            FROM (
-                SELECT TRIM(l) AS lang
-                FROM games, UNNEST(STRING_TO_ARRAY(supported_languages, ',')) AS l
-                WHERE supported_languages IS NOT NULL AND supported_languages <> ''
-            ) t
-            WHERE lang <> ''
-            GROUP BY lang
+            SELECT l.name AS language, COUNT(gl.steam_appid) AS count
+            FROM languages l
+            JOIN game_languages gl ON l.id = gl.language_id
+            GROUP BY l.id, l.name
             ORDER BY count DESC
             LIMIT :lim
             """
@@ -301,8 +293,8 @@ class SteamService:
         self, limit: int = 10, sort_by: str = "total_reviews"
     ) -> List[Game]:
         """
-        'Top games' theo số review. Vì schema không pre-aggregate,
-        ta JOIN reviews + COUNT.
+        Top games by review count. Because the schema does not pre-aggregate,
+        we JOIN reviews + COUNT.
         """
         count_col = func.count(Review.recommendationid).label("total_reviews")
         q = (
@@ -320,11 +312,11 @@ class SteamService:
         self, sql: str, params: Optional[Dict[str, Any]] = None, limit: int = 200
     ) -> Dict[str, Any]:
         """
-        Chạy 1 câu SELECT (read-only) an toàn cho AI.
-        Trả về: {columns, rows, row_count, truncated}.
+        Run a single SELECT (read-only) statement safely for the AI.
+        Returns: {columns, rows, row_count, truncated}.
         """
         max_rows = max(1, min(limit, 500))
-        # Wrap với subquery LIMIT để chặn dataset lớn
+        # Wrap in a subquery with LIMIT to bound the result set.
         wrapped = f"SELECT * FROM ({sql.rstrip(';')}) AS _ai_sub LIMIT {max_rows}"
         result = await self.db.execute(text(wrapped), params or {})
         cols = list(result.keys())

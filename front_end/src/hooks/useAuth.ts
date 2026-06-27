@@ -6,6 +6,9 @@ import { api, apiGet, apiPost } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import type { AuthTokens, LoginPayload, RegisterPayload, User } from "@/lib/types";
 
+// Module-level flag to prevent duplicate /auth/me calls across hook instances
+let _fetchingMe = false;
+
 /**
  * Auth hook:
  *  - hydrates tokens from localStorage on mount
@@ -29,11 +32,14 @@ export function useAuth() {
     if (!hydrated) hydrate();
   }, [hydrated, hydrate]);
 
+  // Track in-flight /auth/me to avoid duplicate calls
   useEffect(() => {
-    if (hydrated && accessToken && !user) {
+    if (hydrated && accessToken && !user && !_fetchingMe) {
+      _fetchingMe = true;
       apiGet<User>("/auth/me")
         .then((u) => setUser(u))
-        .catch(() => clear());
+        .catch(() => clear())
+        .finally(() => { _fetchingMe = false; });
     }
   }, [hydrated, accessToken, user, setUser, clear]);
 

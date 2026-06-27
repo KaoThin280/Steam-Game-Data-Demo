@@ -18,17 +18,18 @@ class GameOut(BaseModel):
     steam_appid: int
     name: str
     is_free: bool = False
-    supported_languages: Optional[str] = None
     required_age: int = 0
     release_date: Optional[date] = None
     publishers: Optional[str] = None
     developers: Optional[str] = None
-    categories: Optional[str] = None
-    genres: Optional[str] = None
     price_text: Optional[str] = None
     created_at: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    # NOTE: the `supported_languages` / `categories` / `genres` fields
+    # have been removed from the public.games schema. The FE may still
+    # send them - they are ignored at validation time (extra="ignore").
+
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
 
 
 class GameListResponse(BaseModel):
@@ -41,6 +42,9 @@ class GameListResponse(BaseModel):
 
 class GameFilter(BaseModel):
     search: Optional[str] = None
+    # The `genre` / `category` fields are kept for backwards compatibility
+    # with the existing FE but are not applied, because the corresponding
+    # CSV columns have been removed from the public.games schema.
     genre: Optional[str] = None
     category: Optional[str] = None
     developer: Optional[str] = None
@@ -52,25 +56,26 @@ class GameFilter(BaseModel):
     page: int = 1
     page_size: int = 20
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
 
 class GameCreate(BaseModel):
-    """Schema for admin to create/update a game (upsert)."""
+    """Schema for admin to create/update a game (upsert).
+
+    NOTE: the CSV fields (genres / categories / supported_languages) were
+    removed because they are no longer in the public.games schema.
+    """
 
     steam_appid: int = Field(..., ge=0)
     name: str = Field(..., min_length=1)
     is_free: bool = False
-    supported_languages: Optional[str] = None
     required_age: int = 0
     release_date: Optional[date] = None
     publishers: Optional[str] = None
     developers: Optional[str] = None
-    categories: Optional[str] = None
-    genres: Optional[str] = None
     price_text: Optional[str] = None
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
 
 # ============ Review ============

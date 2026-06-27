@@ -19,20 +19,22 @@ from app.db.base import Base
 
 
 class Game(Base):
-    """public.games - Steam game metadata (flattened)."""
+    """public.games - Steam game metadata (flattened, simplified schema).
+
+    The CSV columns (genres / categories / supported_languages) have been
+    removed from the live schema to save storage. If needed, dedicated
+    junction tables can be added later.
+    """
 
     __tablename__ = "games"
 
     steam_appid: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     is_free: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    supported_languages: Mapped[Optional[str]] = mapped_column(Text)
     required_age: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     release_date: Mapped[Optional[date]] = mapped_column(Date)
     publishers: Mapped[Optional[str]] = mapped_column(Text)
     developers: Mapped[Optional[str]] = mapped_column(Text)
-    categories: Mapped[Optional[str]] = mapped_column(Text)
-    genres: Mapped[Optional[str]] = mapped_column(Text)
     price_text: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True

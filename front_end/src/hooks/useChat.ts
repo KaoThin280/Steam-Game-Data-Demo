@@ -7,28 +7,23 @@ import type {
   ChatMessage,
   ChatRequestPayload,
   ChatResponse,
-  E2BChatResponse,
+  WorkflowEvent,
 } from "@/lib/types";
 
-export type ChatMode = "agent" | "e2b";
-
-interface UseChatOptions {
-  defaultMode?: ChatMode;
-}
-
 /**
- * Chat hook supporting both the SQL+Chart.js agent (/ai/chat)
- * and the E2B Python workflow (/chat).
+ * Unified chat hook — calls /ai/chat which has all 5 tools.
+ * Tracks workflow events for real-time progress display.
  */
-export function useChat(opts: UseChatOptions = {}) {
+export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [mode, setMode] = useState<ChatMode>(opts.defaultMode ?? "agent");
   const [isSending, setIsSending] = useState(false);
+  const [workflowEvents, setWorkflowEvents] = useState<WorkflowEvent[]>([]);
 
   const reset = useCallback(() => {
     setMessages([]);
     setSessionId(null);
+    setWorkflowEvents([]);
   }, []);
 
   const send = useCallback(
@@ -37,6 +32,7 @@ export function useChat(opts: UseChatOptions = {}) {
       const userMsg: ChatMessage = { role: "user", content: text };
       setMessages((m) => [...m, userMsg]);
       setIsSending(true);
+      setWorkflowEvents([]);
 
       const payload: ChatRequestPayload = {
         message: text,
@@ -44,31 +40,19 @@ export function useChat(opts: UseChatOptions = {}) {
       };
 
       try {
-        if (mode === "agent") {
-          setStage("generating", "/ai/chat");
-          const r = await apiPost<ChatResponse>("/ai/chat", payload);
-          setSessionId(r.session_id);
-          setMessages((m) => [
-            ...m,
-            {
-              role: "assistant",
-              content: r.reply,
-              charts: r.charts,
-              tool_calls: r.tool_calls as ChatMessage["tool_calls"],
-            },
-          ]);
-        } else {
-          setStage("executing_e2b", "/chat");
-          const r = await apiPost<E2BChatResponse>("/chat", payload);
-          setMessages((m) => [
-            ...m,
-            {
-              role: "assistant",
-              content: r.user_response,
-              tool_calls: r.events as unknown as ChatMessage["tool_calls"],
-            },
-          ]);
-        }
+        setStage("generating", "/ai/chat");
+        const r = await apiPost<ChatResponse>("/ai/chat", payload, 180000); // 3 min timeout for E2B + retries
+        setSessionId(r.session_id);
+        setWorkflowEvents(r.workflow_events || []);
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            content: r.reply,
+            charts: r.charts,
+            sandboxFiles: r.sandbox_files,
+          },
+        ]);
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Chat failed";
         setMessages((m) => [
@@ -80,8 +64,8 @@ export function useChat(opts: UseChatOptions = {}) {
         setStage("connected");
       }
     },
-    [mode, sessionId]
+    [sessionId]
   );
 
-  return { messages, sessionId, mode, setMode, isSending, send, reset };
+  return { messages, sessionId, isSending, workflowEvents, send, reset };
 }

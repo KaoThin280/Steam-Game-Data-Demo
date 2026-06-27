@@ -31,6 +31,8 @@ export function RoleGuard({ allow, fallback = "/login", children }: RoleGuardPro
       router.replace(fallback);
       return;
     }
+    // user is still loading (token exists but /auth/me hasn't returned yet)
+    if (!user) return;
     if (!userHasAnyRole(user?.roles, ...allow)) {
       router.replace("/");
     }
@@ -43,7 +45,22 @@ export function RoleGuard({ allow, fallback = "/login", children }: RoleGuardPro
       </div>
     );
   }
-  if (!isAuthenticated || !userHasAnyRole(user?.roles, ...allow)) {
+  if (!isAuthenticated) {
+    return (
+      <div className="grid h-[40vh] place-items-center text-sm text-white/60">
+        Redirecting to login...
+      </div>
+    );
+  }
+  // Still waiting for /auth/me to complete
+  if (!user) {
+    return (
+      <div className="grid h-[40vh] place-items-center text-sm text-white/60">
+        Loading user profile...
+      </div>
+    );
+  }
+  if (!userHasAnyRole(user?.roles, ...allow)) {
     return (
       <div className="grid h-[40vh] place-items-center text-sm text-white/60">
         Redirecting...

@@ -4,7 +4,7 @@
 
 This document describes the database schema used in the **Steam Game Data Demo** project. The database is designed to store Steam game metadata, user reviews, and to support an application-level user authentication and authorization (RBAC) system.
 
-The schema is implemented in **PostgreSQL** (specifically tailored for Supabase) and utilizes native features such as `BIGINT GENERATED ALWAYS AS IDENTITY` for primary keys and `TIMESTAMPTZ` for timezone-aware timestamps.
+The schema is implemented in **PostgreSQL** (specifically tailored for Supabase) and utilizes native features such as `BIGINT GENERATED ALWAYS AS IDENTITY` for primary keys and `TIMESTAMPTZ` for timezone-aware timestamps. The database has been normalized to use junction tables for multi-valued attributes like languages, categories, and genres.
 
 ---
 
@@ -12,7 +12,8 @@ The schema is implemented in **PostgreSQL** (specifically tailored for Supabase)
 
 1. [Steam Database Schema](#1-steam-database-schema)
    - [Entity Relationship Overview](#entity-relationship-overview)
-   - [Games Table](#games-table)
+   - [Games Core Table](#games-core-table)
+   - [Game Metadata Tables (Many-to-Many)](#game-metadata-tables)
    - [Users & Reviews Tables](#users--reviews-tables)
 2. [User Authentication & Authorization Schema](#2-user-authentication--authorization-schema)
    - [Auth Tables](#auth-tables)
@@ -25,30 +26,30 @@ The schema is implemented in **PostgreSQL** (specifically tailored for Supabase)
 
 ### Entity Relationship Overview <a id="entity-relationship-overview"></a>
 
-The schema utilizes a flattened structure for game metadata to optimize bulk inserts and reduce complex joins. 
+The schema utilizes a normalized structure for core entities to support efficient querying and indexing.
 
 Main relationships:
 - `games` **1—N** `reviews`
 - `users` **1—N** `reviews`
+- `games` **M—N** `languages` (via `game_languages`)
+- `games` **M—N** `categories` (via `game_categories`)
+- `games` **M—N** `genres` (via `game_genres`)
 
-### Games Table <a id="games-table"></a>
+### Games Core Table <a id="games-core-table"></a>
 
 #### 1.1 `games` — Core Game Information
 
-The main table that stores one row per Steam game. Array-like data (publishers, developers, genres) is stored as flattened comma-separated text strings.
+The main table that stores one row per Steam game. *Note: Array-like metadata (languages, categories, genres) have been extracted into separate dimension tables.*
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `steam_appid` | `INTEGER` | `PRIMARY KEY` | Unique Steam application ID |
 | `name` | `TEXT` | `NOT NULL` | Game name |
 | `is_free` | `BOOLEAN` | `DEFAULT FALSE` | Whether the game is free to play |
-| `supported_languages` | `TEXT` | – | Comma-separated list of supported languages |
 | `required_age` | `INTEGER` | `DEFAULT 0` | Minimum required age |
 | `release_date` | `DATE` | – | Game release date |
 | `publishers` | `TEXT` | – | Comma-separated list of publishers |
 | `developers` | `TEXT` | – | Comma-separated list of developers |
-| `categories` | `TEXT` | – | Comma-separated list of categories |
-| `genres` | `TEXT` | – | Comma-separated list of genres |
 | `price_text` | `TEXT` | – | Formatted price string |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT CURRENT_TIMESTAMP` | Record creation time |
 
@@ -56,9 +57,35 @@ Indexes:
 - `idx_games_name ON games(name)`
 - `idx_games_is_free ON games(is_free)`
 
+### Game Metadata Tables (Many-to-Many) <a id="game-metadata-tables"></a>
+
+These tables handle the multi-valued attributes of games, allowing for proper indexing and statistical queries.
+
+#### 1.2 Dimension Tables (`languages`, `categories`, `genres`)
+
+| Table | Column | Type | Constraints | Description |
+|-------|--------|------|-------------|-------------|
+| **languages** | `id` | `SERIAL` | `PRIMARY KEY` | Surrogate key |
+| | `name` | `TEXT` | `UNIQUE NOT NULL` | Language name |
+| **categories**| `id` | `SERIAL` | `PRIMARY KEY` | Surrogate key |
+| | `name` | `TEXT` | `UNIQUE NOT NULL` | Category name (e.g., Single-player) |
+| **genres** | `id` | `SERIAL` | `PRIMARY KEY` | Surrogate key |
+| | `name` | `TEXT` | `UNIQUE NOT NULL` | Genre name (e.g., Action) |
+
+#### 1.3 Junction Tables
+
+| Table | Column | Type | Constraints |
+|-------|--------|------|-------------|
+| **game_languages** | `steam_appid` | `INTEGER` | `PK`, `FK → games(steam_appid) ON DELETE CASCADE` |
+| | `language_id` | `INTEGER` | `PK`, `FK → languages(id) ON DELETE CASCADE` |
+| **game_categories**| `steam_appid` | `INTEGER` | `PK`, `FK → games(steam_appid) ON DELETE CASCADE` |
+| | `category_id` | `INTEGER` | `PK`, `FK → categories(id) ON DELETE CASCADE` |
+| **game_genres** | `steam_appid` | `INTEGER` | `PK`, `FK → games(steam_appid) ON DELETE CASCADE` |
+| | `genre_id` | `INTEGER` | `PK`, `FK → genres(id) ON DELETE CASCADE` |
+
 ### Users & Reviews Tables <a id="users--reviews-tables"></a>
 
-#### 1.2 `users` — Steam Users
+#### 1.4 `users` — Steam Users
 
 Stores Steam user profiles based on review extraction.
 
@@ -69,7 +96,7 @@ Stores Steam user profiles based on review extraction.
 | `num_games_owned` | `INTEGER` | `DEFAULT 0` | Number of games owned |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT CURRENT_TIMESTAMP` | Record creation time |
 
-#### 1.3 `reviews` — User Reviews
+#### 1.5 `reviews` — User Reviews
 
 Stores individual user reviews linked to specific games and users.
 
@@ -172,14 +199,16 @@ Default Permissions Matrix:
 
 | # | Table | Purpose |
 |---|-------|---------|
-| 1 | `games` | Flattened game metadata records |
-| 2 | `users` | Steam user profiles |
-| 3 | `reviews` | User reviews and playtime statistics |
-| 4 | `roles` | RBAC roles definition |
-| 5 | `permissions` | RBAC permissions definition |
-| 6 | `role_permissions` | Junction table for Role ↔ Permission |
-| 7 | `app_users` | Internal application accounts |
-| 8 | `user_roles` | Junction table for App User ↔ Role |
+| 1 | `games` | Core game metadata records |
+| 2 | `languages` / `categories` / `genres` | Dimension tables for multi-valued game attributes |
+| 3 | `game_languages` / `game_categories` / `game_genres` | Junction tables resolving N:M game relationships |
+| 4 | `users` | Steam user profiles |
+| 5 | `reviews` | User reviews and playtime statistics |
+| 6 | `roles` | RBAC roles definition |
+| 7 | `permissions` | RBAC permissions definition |
+| 8 | `role_permissions` | Junction table for Role ↔ Permission |
+| 9 | `app_users` | Internal application accounts |
+| 10 | `user_roles` | Junction table for App User ↔ Role |
 
 ---
 *End of schema documentation.*

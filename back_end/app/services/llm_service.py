@@ -103,7 +103,7 @@ class LLMService:
         sys_prompt = (
             "You are a Data Analyst AI for a Steam games database. "
             "Use ONLY the data context below to answer. Do NOT invent values. "
-            "Keep answers concise and in Vietnamese unless the user asks otherwise.\n\n"
+            "Reply in the user's language. Keep answers concise.\n\n"
             f"DATA CONTEXT:\n{data_context_summary}"
         )
         user_prompt = f"User question: {query}\nAnswer concisely."
@@ -121,7 +121,8 @@ class LLMService:
         client = _get_client()
         sys_prompt = (
             "You are a Data Analyst AI for a Steam games database. "
-            "Use ONLY the data context below. Be concise, in Vietnamese.\n\n"
+            "Use ONLY the data context below. Reply in the user's language. "
+            "Be concise.\n\n"
             f"DATA CONTEXT:\n{data_context_summary}"
         )
         stream = await client.chat.completions.create(
@@ -184,18 +185,51 @@ class LLMService:
         data_context_summary: str,
         installed_packages: Optional[Set[str]] = None,
     ) -> Dict[str, Any]:
-        """Ask the LLM to produce JSON tool calls for execution."""
+        """Ask the LLM to produce JSON tool calls for execution.
+
+        Contract:
+          - If code is needed, the response MUST be a single JSON object:
+              {"tool": "execute_code", "code": "<python>", "description": "<short>"}
+            with NO prose before or after the JSON.
+          - The execute_code tool returns either
+              {"success": true, "logs": "...", "results": [...], "sandbox_files": [...]}
+            or
+              {"success": false, "logs": "...", "error": "<message>", "sandbox_files": [...]}
+          - When the tool returns success=false, the workflow feeds the error back to
+            the model and asks for a corrected tool call. The model may retry the
+            same tool up to MAX_RETRIES=3 times per user message.
+          - The user NEVER sees the raw JSON tool call, the code, or the error.
+            The model is asked to keep its final natural-language answer free of
+            code/tool/error references.
+          - If no code is needed, the model should reply with plain text only
+            (no JSON).
+        """
+        packages = ", ".join(sorted(installed_packages)) if installed_packages else "pandas, matplotlib, seaborn, numpy"
         sys_prompt = (
-            "You are a Data Analyst AI. You have ONE tool: execute_code.\n"
-            "When code is needed, respond with STRICT JSON only:\n"
-            '{"tool": "execute_code", "code": "<python>", "description": "<short>"}\n'
-            "If no code is needed, respond with text only (no JSON).\n\n"
+            "You are a Data Analyst AI running in an automated workflow. "
+            "The user NEVER sees your tool calls - they only read your final "
+            "natural-language reply. Tool calls and errors are internal.\n\n"
+            "You have ONE tool: execute_code. "
+            "When code is needed, respond with STRICT JSON only, no prose:\n"
+            '{"tool": "execute_code", "code": "<python>", "description": "<short>"}\n\n'
+            "If no code is needed, respond with text only (no JSON, no code blocks).\n\n"
+            "When the user reports that your previous code failed (you receive a "
+            "user-role message containing the error):\n"
+            "  1. Read the error carefully.\n"
+            "  2. Identify the cause (syntax error, missing import, bad column, "
+            "     wrong library, etc.).\n"
+            "  3. Reply again with the SAME JSON tool_call shape but with corrected code.\n"
+            "  4. Only use pre-installed packages: " + packages + ".\n"
+            "  5. If the data you need is not available, reply with a brief plain-text "
+            "     explanation instead of a tool call.\n\n"
+            "Always keep your code self-contained. Always end with a `print(...)` "
+            "of the value(s) the user asked about.\n\n"
             f"DATA CONTEXT:\n{data_context_summary}"
         )
         user_prompt = (
             f"User request: {query}\n"
-            "If you need to run Python (e.g. statistics, charts, aggregations), "
-            "respond with the JSON tool call. Otherwise just answer in text."
+            "If you need to run Python (statistics, charts, aggregations), respond "
+            "with the JSON tool call above. Otherwise answer in plain text."
         )
         raw = await _call_openrouter_async(
             sys_prompt, user_prompt, max_tokens=3500, temperature=0.2

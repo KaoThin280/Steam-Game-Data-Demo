@@ -37,14 +37,18 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
+    """User-facing response for the E2B / Python agent.
+
+    Only contains the final natural-language reply, the session id, the
+    produced artifact filenames, and the status flag. Internal details
+    (raw Python ``code``, execution ``logs``, ``events`` tool-call trace,
+    ``error_message`` traceback, ``retries_used`` counter) are kept on the
+    server for logging only and are NOT exposed here.
+    """
+
     status: str
     user_response: str
-    code: Optional[str] = None
     new_files: List[str] = []
-    logs: str = ""
-    retries_used: int = 0
-    events: list = []
-    error_message: Optional[str] = None
     session_id: str
 
 
@@ -74,7 +78,9 @@ async def chat(
     workflow: AgenticWorkflow = Depends(get_workflow),
 ):
     """Ask the AI agent a question. The agent may query the SQL gateway and/or
-    run Python in E2B (with up to 4 retries)."""
+    run Python in E2B (with up to 3 retries on failure). The endpoint returns
+    ONLY the final natural-language answer - tool/code/error details are
+    kept server-side for logging."""
     await rate_limit(request, limit=10, window=60, bucket="ai-chat-agent")
     if not payload.message or not payload.message.strip():
         raise HTTPException(status_code=400, detail="message is required")
@@ -84,12 +90,7 @@ async def chat(
     return ChatResponse(
         status=result.get("status", "success"),
         user_response=result.get("user_response", ""),
-        code=result.get("code"),
         new_files=result.get("new_files", []),
-        logs=result.get("logs", ""),
-        retries_used=result.get("retries_used", 0),
-        events=result.get("events", []),
-        error_message=result.get("error_message"),
         session_id=session_id,
     )
 
