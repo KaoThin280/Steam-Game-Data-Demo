@@ -76,10 +76,10 @@ export function GameListTable({ embedded = false }: GameListTableProps) {
       {
         key: "genres",
         header: "Genres",
-        accessor: (g) =>
+        accessor: (g: any) =>
           (g.genres ?? "")
             .split(",")
-            .map((s) => s.trim())
+            .map((s: string) => s.trim())
             .filter(Boolean)
             .slice(0, 3)
             .join(", ") || "-",
@@ -104,9 +104,9 @@ export function GameListTable({ embedded = false }: GameListTableProps) {
     <div className="flex flex-col gap-3">
       {!embedded && (
         <FilterBar
-          filters={filters}
+          filters={filters as any}
           fields={FILTER_FIELDS}
-          onChange={setFilter}
+          onChange={setFilter as any}
           onReset={() => { reset(); }}
         />
       )}
