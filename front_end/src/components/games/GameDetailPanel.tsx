@@ -65,7 +65,7 @@ export function GameDetailPanel({ appid }: { appid: number }) {
         <FilterBar
           filters={filters as any}
           fields={REVIEW_FILTERS}
-          onChange={setFilter}
+          onChange={setFilter as any}
           onReset={reset}
         />
         <div className="mt-3">
