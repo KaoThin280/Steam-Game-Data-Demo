@@ -113,7 +113,7 @@ function GamesTab() {
               x_axis_label: "Genre",
               y_axis_label: "Games",
               config: {
-                  labels: (genres.data ?? []).slice(0, 15).map((g) => g.genre ?? g.label ?? ""),
+                  labels: (genres.data ?? []).slice(0, 15).map((g) => g.genre ?? g.label ?? "Unknown"),
                   datasets: [
                     {
                       label: "Games",
