@@ -12,12 +12,12 @@ import type {
 } from "@/lib/types";
 
 /** Build a deterministic SWR cache key from a filter object. */
-const serialize = (obj: Record<string, unknown> | undefined) =>
+const serialize = (obj: unknown): string =>
   obj ? JSON.stringify(obj) : "";
 
 export function useGames(filter: GameFilter | undefined) {
   const key = filter ? ["/games", serialize(filter)] : null;
-  return useSWR<PaginatedResponse<Game>>(key, async ([url, _]) => {
+  return useSWR<PaginatedResponse<Game>>(key, async ([url, _]: [string, string]) => {
     const params: Record<string, unknown> = {};
     if (filter?.search) params.search = filter.search;
     if (filter?.genre) params.genre = filter.genre;
@@ -35,14 +35,14 @@ export function useGames(filter: GameFilter | undefined) {
 }
 
 export function useGame(appid: number | null) {
-  return useSWR<Game>(appid ? `/games/${appid}` : null, (url) =>
+  return useSWR<Game>(appid ? `/games/${appid}` : null, (url: string) =>
     apiGet<Game>(url)
   );
 }
 
 export function useReviews(appid: number | null, filter: ReviewFilter | undefined) {
   const key = appid ? [`/games/${appid}/reviews`, serialize(filter)] : null;
-  return useSWR<PaginatedResponse<Review>>(key, async ([url, _]) => {
+  return useSWR<PaginatedResponse<Review>>(key, async ([url, _]: [string, string]) => {
     const params: Record<string, unknown> = {};
     if (filter?.language) params.language = filter.language;
     if (filter?.refunded !== undefined) params.refunded = filter.refunded;
