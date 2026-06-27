@@ -63,7 +63,7 @@ export function GameDetailPanel({ appid }: { appid: number }) {
       <section>
         <h2 className="mb-2 text-lg font-semibold">Reviews</h2>
         <FilterBar
-          filters={filters}
+          filters={filters as any}
           fields={REVIEW_FILTERS}
           onChange={setFilter}
           onReset={reset}
