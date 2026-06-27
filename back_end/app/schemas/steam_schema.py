@@ -24,6 +24,7 @@ class GameOut(BaseModel):
     developers: Optional[str] = None
     price_text: Optional[str] = None
     created_at: Optional[datetime] = None
+    genres: List[str] = []
 
     # NOTE: the `supported_languages` / `categories` / `genres` fields
     # have been removed from the public.games schema. The FE may still

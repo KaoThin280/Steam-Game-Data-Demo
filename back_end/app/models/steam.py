@@ -44,6 +44,10 @@ class Game(Base):
         back_populates="game", cascade="all, delete-orphan"
     )
 
+    game_genres: Mapped[list["GameGenre"]] = relationship(
+        cascade="all, delete-orphan"
+    )
+
     def __repr__(self) -> str:
         return f"<Game(steam_appid={self.steam_appid}, name={self.name})>"
 
@@ -66,6 +70,23 @@ class SteamUser(Base):
 
     def __repr__(self) -> str:
         return f"<SteamUser(steamid={self.steamid}, personaname={self.personaname})>"
+
+class Genre(Base):
+    """public.genres - dimension table."""
+    __tablename__ = "genres"
+    __table_args__ = {"schema": "public"}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+
+
+class GameGenre(Base):
+    """public.game_genres - junction table."""
+    __tablename__ = "game_genres"
+    __table_args__ = {"schema": "public"}
+
+    steam_appid: Mapped[int] = mapped_column(Integer, primary_key=True)
+    genre_id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
 
 class Review(Base):

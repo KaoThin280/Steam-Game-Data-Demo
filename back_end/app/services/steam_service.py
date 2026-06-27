@@ -11,6 +11,7 @@ Schema notes:
 """
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+from sqlalchemy.orm import selectinload
 
 from sqlalchemy import and_, asc, desc, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,8 +54,10 @@ class SteamService:
         self, filter_: GameFilter
     ) -> Tuple[List[Game], int]:
         """List games filtered + sorted + paginated."""
-        query = select(Game)
-        count_q = select(func.count(Game.steam_appid))
+        query = select(Game).options(selectinload(Game.game_genres))
+        from sqlalchemy.orm import selectinload
+
+    count_q = select(func.count(Game.steam_appid))
         conds = []
 
         if filter_.search:
