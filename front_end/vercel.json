@@ -1,5 +1,11 @@
 {
+  "framework": "nextjs",
   "buildCommand": "next build",
   "outputDirectory": ".next",
-  "framework": "nextjs"
+  "rewrites": [
+    {
+      "source": "/api/v1/:path*",
+      "destination": "http://35.212.245.111:8000/api/v1/:path*"
+    }
+  ]
 }
