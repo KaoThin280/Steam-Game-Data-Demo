@@ -77,10 +77,7 @@ export function GameListTable({ embedded = false }: GameListTableProps) {
         key: "genres",
         header: "Genres",
         accessor: (g: any) =>
-          (g.genres ?? "")
-            .split(",")
-            .map((s: string) => s.trim())
-            .filter(Boolean)
+          (Array.isArray(g.genres) ? g.genres : [])
             .slice(0, 3)
             .join(", ") || "-",
       },
