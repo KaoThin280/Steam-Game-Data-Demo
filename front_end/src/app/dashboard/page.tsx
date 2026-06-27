@@ -113,7 +113,7 @@ function GamesTab() {
               x_axis_label: "Genre",
               y_axis_label: "Games",
               config: {
-                  labels: (genres.data ?? []).slice(0, 15).map((g) => g.genre ?? g.label),
+                  labels: (genres.data ?? []).slice(0, 15).map((g) => g.genre ?? g.label ?? ""),
                   datasets: [
                     {
                       label: "Games",
@@ -157,7 +157,7 @@ function GamesTab() {
               chart_type: "doughnut",
               chart_title: "Languages by supported game count",
               config: {
-                  labels: (languages.data ?? []).slice(0, 10).map((l) => l.language ?? l.label),
+                  labels: (languages.data ?? []).slice(0, 10).map((l) => l.language ?? l.label ?? ""),
                   datasets: [
                     {
                       label: "Games",
@@ -214,7 +214,7 @@ function UsersTab() {
               x_axis_label: "Language",
               y_axis_label: "Games",
               config: {
-                labels: (languages.data ?? []).slice(0, 10).map((l) => l.language ?? l.label),
+                  labels: (languages.data ?? []).slice(0, 10).map((l) => l.language ?? l.label ?? ""),
                 datasets: [
                   {
                     label: "Games",
