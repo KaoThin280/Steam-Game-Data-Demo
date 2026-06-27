@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import {
   ArcElement,
+  BarController,
   BarElement,
   CategoryScale,
   Chart as ChartJS,
@@ -10,12 +11,18 @@ import {
   type ChartData,
   type ChartOptions,
   type ChartType,
+  DoughnutController,
   Filler,
   Legend,
   LinearScale,
+  LineController,
   LineElement,
+  PieController,
   PointElement,
+  PolarAreaController,
+  RadarController,
   RadialLinearScale,
+  ScatterController,
   Title,
   Tooltip,
 } from "chart.js";
@@ -25,14 +32,21 @@ import type { AiChartSpec } from "@/lib/types";
 
 ChartJS.register(
   ArcElement,
+  BarController,
   BarElement,
   CategoryScale,
+  DoughnutController,
   Filler,
   Legend,
   LinearScale,
+  LineController,
   LineElement,
+  PieController,
   PointElement,
+  PolarAreaController,
+  RadarController,
   RadialLinearScale,
+  ScatterController,
   Title,
   Tooltip
 );
