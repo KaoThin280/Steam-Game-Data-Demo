@@ -1,3 +1,4 @@
+#test after sync
 """
 AI Service - OpenRouter + structured text protocol.
 
