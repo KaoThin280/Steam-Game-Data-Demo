@@ -55,9 +55,8 @@ class SteamService:
     ) -> Tuple[List[Game], int]:
         """List games filtered + sorted + paginated."""
         query = select(Game).options(selectinload(Game.game_genres))
-        from sqlalchemy.orm import selectinload
 
-    count_q = select(func.count(Game.steam_appid))
+        count_q = select(func.count(Game.steam_appid))
         conds = []
 
         if filter_.search:

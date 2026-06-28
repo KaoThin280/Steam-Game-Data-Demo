@@ -45,6 +45,7 @@ class Game(Base):
     )
 
     game_genres: Mapped[list["GameGenre"]] = relationship(
+        backref="game",
         cascade="all, delete-orphan"
     )
 
@@ -85,9 +86,8 @@ class GameGenre(Base):
     __tablename__ = "game_genres"
     __table_args__ = {"schema": "public"}
 
-    steam_appid: Mapped[int] = mapped_column(Integer, primary_key=True)
-    genre_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-
+    steam_appid: Mapped[int] = mapped_column(Integer, ForeignKey("games.steam_appid", ondelete="CASCADE"), primary_key=True)
+    genre_id: Mapped[int] = mapped_column(Integer, ForeignKey("genres.id", ondelete="CASCADE"), primary_key=True)
 
 class Review(Base):
     """public.reviews - Steam user reviews."""
