@@ -18,6 +18,7 @@ from app.schemas.user_schema import (
     UserOut,
 )
 from app.services.auth_service import AuthService
+from app.utils.user_helpers import user_to_out
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -48,31 +49,6 @@ class UserListResponse(BaseModel):
     page_size: int = 20
     total_pages: int = 1
 
-
-# Re-use the converter from auth.py to avoid duplication
-def _user_to_out(user: AppUser) -> UserOut:
-    role_names: list[str] = []
-    perm_names: list[str] = []
-    seen = set()
-    for ur in (user.roles or []):
-        if ur.role is None:
-            continue
-        role_names.append(ur.role.role_name)
-        for rp in (ur.role.permissions or []):
-            if rp.permission and rp.permission.permission_name not in seen:
-                seen.add(rp.permission.permission_name)
-                perm_names.append(rp.permission.permission_name)
-    return UserOut(
-        id=user.id,
-        username=user.username,
-        email=user.email,
-        full_name=user.full_name,
-        is_active=user.is_active,
-        created_at=user.created_at,
-        last_login=user.last_login,
-        roles=role_names,
-        permissions=sorted(perm_names),
-    )
 
 
 # ============ Roles & Permissions (read-only catalog) ============
@@ -120,7 +96,7 @@ async def list_users(
         page=page, page_size=page_size, search=search, role_name=role
     )
     return UserListResponse(
-        items=[_user_to_out(u) for u in items],
+        items=[user_to_out(u) for u in items],
         total=total,
         page=page,
         page_size=page_size,
@@ -146,7 +122,7 @@ async def get_user(
     auth_service: AuthService = Depends(get_auth_service),
 ):
     user = await _get_user(auth_service, user_id)
-    return _user_to_out(user)
+    return user_to_out(user)
 
 
 @router.patch(
@@ -167,7 +143,7 @@ async def update_user(
     await auth_service.db.refresh(user)
     # Reload with roles
     reloaded = await auth_service.get_user_by_id(user.id)
-    return _user_to_out(reloaded or user)
+    return user_to_out(reloaded or user)
 
 
 @router.post(
@@ -183,7 +159,7 @@ async def assign_role(
 ):
     user = await _get_user(auth_service, user_id)
     updated = await auth_service.assign_role(user, payload.role_name)
-    return _user_to_out(updated)
+    return user_to_out(updated)
 
 
 @router.delete(
@@ -199,4 +175,4 @@ async def revoke_role(
 ):
     user = await _get_user(auth_service, user_id)
     updated = await auth_service.revoke_role(user, role_name)
-    return _user_to_out(updated)
+    return user_to_out(updated)

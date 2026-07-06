@@ -58,11 +58,12 @@ export default function LoginPage() {
     try {
       const me = await login(values);
       const roles = me?.roles ?? [];
-      if (roles.includes("analyst") || roles.includes("scientist") || roles.includes("admin")) {
-        router.replace("/dashboard");
-      } else {
-        router.replace("/games");
-      }
+      // Pick the appropriate landing page based on role.
+      const isAnalyst =
+        roles.includes("analyst") ||
+        roles.includes("scientist") ||
+        roles.includes("admin");
+      router.replace(isAnalyst ? "/dashboard" : "/games");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Login failed");
     }
@@ -71,8 +72,16 @@ export default function LoginPage() {
   const onRegister = async (values: RegisterForm) => {
     setError(null);
     try {
-      await register(values);
-      router.replace("/games");
+      // `register` performs login() at the end and returns the user.
+      const me = await register(values);
+      const roles = me?.roles ?? [];
+      // Newly registered users default to `viewer` -> /games. If an
+      // admin somehow registers (rare), send them to /dashboard.
+      const isAnalyst =
+        roles.includes("analyst") ||
+        roles.includes("scientist") ||
+        roles.includes("admin");
+      router.replace(isAnalyst ? "/dashboard" : "/games");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Registration failed");
     }

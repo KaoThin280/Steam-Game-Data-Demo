@@ -2,7 +2,9 @@
 Main entry point - Khởi tạo FastAPI app, gắn CORS, gắn Routers.
 """
 import logging
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -185,11 +187,10 @@ app.include_router(admin.router, prefix=API_V1)
 app.include_router(data_files.router, prefix=API_V1)
 
 # ============== Static files (temp_data for E2B-generated artifacts) ==============
-import os
-from pathlib import Path
+# NOTE: StaticFiles mount removed for security. Files are now served via
+# /api/v1/data-files/{filename}?token=... with HMAC-signed tokens.
 temp_data_dir = Path(settings.TEMP_DATA_DIR)
 temp_data_dir.mkdir(parents=True, exist_ok=True)
-app.mount(f"{API_V1}/temp_data", StaticFiles(directory=str(temp_data_dir)), name="temp_data")
 
 
 # ============== Health ==============

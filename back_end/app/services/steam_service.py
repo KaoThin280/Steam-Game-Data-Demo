@@ -17,7 +17,7 @@ from sqlalchemy import and_, asc, desc, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundException
-from app.models.steam import Game, Review, SteamUser
+from app.models.steam import Game, GameGenre, Review, SteamUser
 from app.schemas.steam_schema import (
     GameCreate,
     GameFilter,
@@ -54,8 +54,7 @@ class SteamService:
         self, filter_: GameFilter
     ) -> Tuple[List[Game], int]:
         """List games filtered + sorted + paginated."""
-        query = select(Game).options(selectinload(Game.game_genres))
-
+        query = select(Game).options(selectinload(Game.game_genres).selectinload(GameGenre.genre))
         count_q = select(func.count(Game.steam_appid))
         conds = []
 

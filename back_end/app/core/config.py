@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 10
+    # Read-only DB user for AI SQL execution (defense-in-depth)
+    # If empty, AI queries use the main DATABASE_URL
+    DATABASE_URL_READONLY: Optional[str] = None
 
     # ============== Redis (Upstash) ==============
     # Hỗ trợ 1 trong 2 format
@@ -61,6 +64,7 @@ class Settings(BaseSettings):
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_MODEL: str = "deepseek/deepseek-v4-flash"
     OPENROUTER_FALLBACK_MODEL: str = "openrouter/owl-alpha"
+    LLM_TIMEOUT: float = 120.0  # seconds, OpenRouter request timeout
 
     # ============== E2B Sandbox ==============
     E2B_API_KEY: str = ""

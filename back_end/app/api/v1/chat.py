@@ -11,13 +11,15 @@ The workflow:
   - lets the LLM run Python in the E2B sandbox for charts / aggregations
   - up to 4 retries on code execution failure
 """
+import os
 import time
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_active_user
@@ -133,8 +135,6 @@ async def list_sessions(
     current_user: AppUser = Depends(get_current_active_user),
 ):
     # group by session_id, take the most recent chat per session
-    from sqlalchemy import func
-
     stmt = (
         select(
             ChatHistory.session_id,
@@ -164,9 +164,6 @@ async def list_sessions(
 async def list_files(
     _user: AppUser = Depends(get_current_active_user),
 ):
-    import os
-    from pathlib import Path
-
     temp_dir = Path(settings.TEMP_DATA_DIR)
     if not temp_dir.exists():
         return {"files": []}

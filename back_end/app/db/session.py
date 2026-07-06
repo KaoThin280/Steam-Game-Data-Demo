@@ -79,8 +79,10 @@ def _normalize_db_url(raw_url: str) -> str:
 # ============== PostgreSQL (Async) ==============
 _db_url = _normalize_db_url(settings.DATABASE_URL)
 
-_POOL_SIZE = min(settings.DB_POOL_SIZE, 5)
-_MAX_OVERFLOW = min(settings.DB_MAX_OVERFLOW, 10)
+# Free-tier optimisation: Supabase free allows ~60 connections (shared).
+# With 1-2 workers, pool_size=2 + max_overflow=3 = 5 connections per worker.
+_POOL_SIZE = min(settings.DB_POOL_SIZE, 2)
+_MAX_OVERFLOW = min(settings.DB_MAX_OVERFLOW, 3)
 
 _connect_args: dict = {
     "server_settings": {
@@ -135,6 +137,56 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
+# ============== Read-Only Engine (for AI SQL execution) ==============
+# Uses DATABASE_URL_READONLY if configured, otherwise falls back to main engine.
+# This provides defense-in-depth: even if SQL validation fails, the DB user
+# only has SELECT permissions.
+_readonly_db_url = (
+    _normalize_db_url(settings.DATABASE_URL_READONLY)
+    if settings.DATABASE_URL_READONLY
+    else None
+)
+
+if _readonly_db_url:
+    _readonly_connect_args = {
+        **_connect_args,
+        "server_settings": {
+            **_connect_args.get("server_settings", {}),
+            "application_name": "steam-game-api-readonly",
+            "statement_timeout": "15000",  # Shorter timeout for AI queries
+        },
+    }
+    readonly_engine = create_async_engine(
+        _readonly_db_url,
+        echo=settings.DEBUG,
+        pool_size=1,  # Minimal pool for AI queries
+        max_overflow=2,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+        future=True,
+        connect_args=_readonly_connect_args,
+    )
+    ReadonlySessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
+        bind=readonly_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+    )
+else:
+    # Fallback to main engine if no read-only URL configured
+    readonly_engine = async_engine
+    ReadonlySessionLocal = AsyncSessionLocal
+
+
+async def get_readonly_db() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency for read-only DB session (AI SQL execution)."""
+    async with ReadonlySessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+
 # ============== Redis (Async) ==============
 _redis_url = settings.REDIS_URL
 if _redis_url and _redis_url.startswith("redis://"):
@@ -185,3 +237,5 @@ async def init_db() -> None:
 async def close_db() -> None:
     """Đóng kết nối database khi shutdown app."""
     await async_engine.dispose()
+    if readonly_engine is not async_engine:
+        await readonly_engine.dispose()

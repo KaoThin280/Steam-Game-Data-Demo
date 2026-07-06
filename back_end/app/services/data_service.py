@@ -18,6 +18,8 @@ from app.core.config import settings
 from app.core.exceptions import BadRequestException
 from app.db.session import async_engine
 from app.services.session_service import session_manager
+from app.utils.sql_helpers import validate_sql
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,30 +27,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # SQL gateway (read-only)
 # ---------------------------------------------------------------------------
-_FORBIDDEN = re.compile(
-    r"\b(insert|update|delete|drop|alter|truncate|copy|grant|revoke|"
-    r"create|vacuum|analyze|refresh|call|do|set\s+|select\s+into|"
-    r"merge|returning|with\s+\w+\s+as\s+\(\s*(insert|update|delete))\b",
-    re.IGNORECASE,
-)
-
-
-def _validate_sql(sql: str) -> str:
-    """Allow only SELECT / WITH statements; reject any DDL/DML keyword."""
-    if not sql or not sql.strip():
-        raise BadRequestException("SQL trống.")
-    cleaned = sql.strip().rstrip(";").strip()
-    head = cleaned[:64].lower().lstrip(" (")
-    if not (head.startswith("select") or head.startswith("with")):
-        raise BadRequestException("Chỉ chấp nhận câu SELECT/WITH (read-only).")
-    m = _FORBIDDEN.search(cleaned)
-    if m:
-        raise BadRequestException(f"SQL chứa từ khóa bị cấm: {m.group(0)}")
-    return cleaned
 
 
 async def _run_sql(sql: str, limit: int) -> Dict[str, Any]:
-    cleaned = _validate_sql(sql)
+    cleaned = validate_sql(sql)
     capped = max(1, min(limit, 500))
     wrapped = f"SELECT * FROM ({cleaned}) AS _ai_sub LIMIT {capped}"
     async with async_engine.connect() as conn:

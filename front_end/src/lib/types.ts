@@ -13,6 +13,7 @@ export interface User {
   full_name: string | null;
   is_active: boolean;
   roles: RoleName[];
+  permissions?: string[];
   created_at: string | null;
   last_login: string | null;
 }
@@ -51,6 +52,8 @@ export interface Game {
   developers: string | null;
   price_text: string | null;
   created_at: string | null;
+  /** Genre names from game_genres junction table (populated by backend). */
+  genres: string[];
 }
 
 export interface GameFilter {

@@ -12,6 +12,8 @@ This document covers every step required to bring the project online:
 
 ## 1. External services
 
+> **New in 2026-Q2:** Alembic migrations, read-only DB role, httpOnly cookies, log rotation. See the [CHANGELOG](#changelog) at the end of this document.
+
 ### 1.1 Supabase (PostgreSQL, free tier ~500 MB)
 
 1. Create an account at <https://supabase.com> and start a new project.
@@ -342,7 +344,44 @@ Subsequent pushes to `main` automatically trigger a new Vercel deployment.
 
 ---
 
-## 6. Troubleshooting
+## 6. Database migrations (Alembic)
+
+Alembic is used to version the database schema. The initial migration ( 001_initial.py) mirrors the legacy db_init_supabase.sql so either path can bootstrap the schema.
+
+`ash
+cd back_end
+source .venv/bin/activate
+alembic current          # show current revision
+alembic upgrade head     # apply all pending migrations
+alembic revision --autogenerate -m "add new column"  # generate a new migration
+alembic downgrade -1     # rollback one step
+`
+
+> If you prefer the legacy SQL approach, db_extra_tables.sql is still shipped for one-off use.
+
+## 7. Read-only DB role (recommended for AI features)
+
+The AI agent (/api/v1/ai/chat) executes SELECT statements against the database. As a defense-in-depth layer, run ack_end/db_readonly_user.sql in the Supabase SQL Editor to create a steam_readonly role that only has SELECT permissions.
+
+After running the script, set DATABASE_URL_READONLY in ack_end/.env to the read-only connection string. The application will use this connection for AI queries and fall back to DATABASE_URL if it is not set.
+
+## 8. nginx (production)
+
+A production-ready nginx config is provided in deploy/nginx/steam-api.conf. It includes:
+
+- HTTP -> HTTPS redirect
+- Security headers (HSTS, X-Frame-Options, CSP, etc.)
+- Rate limiting (10 req/s, burst 20) for /api/*`r
+- Long timeouts (90s) for AI endpoints
+- 20 MB body limit
+
+Copy the file to /etc/nginx/sites-available/, symlink to sites-enabled/, then sudo nginx -t && sudo systemctl reload nginx.
+
+## 9. Log rotation
+
+In production (DEBUG=False), the application writes to logs/app.log using RotatingFileHandler: max 5 MB per file, 3 backups (max ~20 MB total). To use this, call pp.core.log_config.setup_logging() from your lifespan handler or import it once during startup. Falls back to console-only logging if the log directory is not writable.
+
+## 10. Troubleshooting
 
 | Symptom | Fix |
 |---|---|

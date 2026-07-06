@@ -5,7 +5,6 @@ Supports:
   - Plain chat (generate_chat_response, generate_chat_response_stream)
   - Code generation with tool calls (generate_code_with_tool_calls)
   - Query classification (needs code or not)
-  - Structured workflow (call_llm_structured for parser-based protocols)
 
 Provider: OpenRouter (OpenAI compatible)
 Default model: deepseek/deepseek-chat-v3.1:free
@@ -37,8 +36,10 @@ def _get_client() -> AsyncOpenAI:
         _client = AsyncOpenAI(
             api_key=settings.OPENROUTER_API_KEY,
             base_url=settings.OPENROUTER_BASE_URL,
+            timeout=settings.LLM_TIMEOUT,
+            max_retries=3,
         )
-        logger.info("OpenRouter client initialised (model=%s)", settings.OPENROUTER_MODEL)
+        logger.info("OpenRouter client initialised (model=%s, timeout=$(settings.LLM_TIMEOUT)s)", settings.OPENROUTER_MODEL)
     return _client
 
 
@@ -66,23 +67,6 @@ async def _call_openrouter_async(
         },
     )
     return resp.choices[0].message.content or ""
-
-
-def _call_openrouter_sync(
-    system_text: str,
-    user_text: str,
-    *,
-    max_tokens: int = 3000,
-    temperature: float = 0.2,
-) -> str:
-    """Synchronous version for legacy structured-workflow code paths."""
-    import asyncio
-    return asyncio.run(
-        _call_openrouter_async(
-            system_text, user_text,
-            max_tokens=max_tokens, temperature=temperature,
-        )
-    )
 
 
 # ===================== Public service class =====================
@@ -273,31 +257,3 @@ class LLMService:
         m = re.search(r"```(?:python|py)\s*\n(.*?)\n```", text, re.DOTALL)
         return m.group(1).strip() if m else None
 
-    # ---------- Structured workflow (used by structured_workflow.py) ----------
-    @staticmethod
-    def call_llm_structured(
-        system_text: str,
-        user_text: str,
-        max_tokens: int = 3000,
-        temperature: float = 0.2,
-    ) -> str:
-        """Synchronous helper for the legacy parser-based structured workflow."""
-        return _call_openrouter_sync(
-            system_text, user_text,
-            max_tokens=max_tokens, temperature=temperature,
-        )
-
-
-# ===================== SQL safety wrapper =====================
-# Re-export so other modules can patch this consistently.
-async def call_openrouter(
-    system_text: str,
-    user_text: str,
-    *,
-    max_tokens: int = 3000,
-    temperature: float = 0.2,
-) -> str:
-    return await _call_openrouter_async(
-        system_text, user_text,
-        max_tokens=max_tokens, temperature=temperature,
-    )

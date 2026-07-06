@@ -1,4 +1,3 @@
-#test after sync
 """
 AI Service - OpenRouter + structured text protocol.
 
@@ -29,6 +28,8 @@ from app.models.user import AIChartHistory, AppUser, ChatHistory
 from app.services.e2b_service import E2BService
 from app.services.session_service import session_manager
 from app.services.steam_service import SteamService
+from app.utils.sql_helpers import validate_sql
+
 
 logger = logging.getLogger(__name__)
 
@@ -243,33 +244,6 @@ def _validate_chart_payload(args: Dict[str, Any]) -> Dict[str, Any]:
         "source_query": args.get("source_query"),
         "notes": args.get("notes"),
     }
-
-
-_FORBIDDEN_KEYWORDS = (
-    r"\binsert\b", r"\bupdate\b", r"\bdelete\b", r"\bdrop\b",
-    r"\balter\b", r"\btruncate\b", r"\bcopy\b", r"\bgrant\b",
-    r"\brevoke\b", r"\bcreate\b", r"\bvacuum\b", r"\banalyze\b",
-    r"\brefresh\b", r"\bcreateextension\b", r"\bset\b",
-    r"\bcall\b", r"\bdo\b", r"\bexplain\b", r"\bselect\s+into\b",
-)
-
-
-def _validate_sql(sql: str) -> str:
-    if not sql or not sql.strip():
-        raise BadRequestException(detail="Empty SQL.")
-    cleaned = sql.strip().rstrip(";").strip()
-    head = cleaned[:64].lower().lstrip(" (")
-    if not (head.startswith("select") or head.startswith("with")):
-        raise BadRequestException(
-            detail="Only SELECT/WITH statements are allowed (read-only)."
-        )
-    low = cleaned.lower()
-    for kw in _FORBIDDEN_KEYWORDS:
-        if re.search(kw, low):
-            raise BadRequestException(
-                detail=f"SQL contains forbidden keyword: {kw}."
-            )
-    return cleaned
 
 
 class AIService:
@@ -581,7 +555,7 @@ class AIService:
     # Tool 1: EXECUTE_QUERY
     # ------------------------------------------------------------------
     async def tool_execute_query(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        sql = _validate_sql(str(args.get("sql", "")))
+        sql = validate_sql(str(args.get("sql", "")))
         params = args.get("params") or {}
         if not isinstance(params, dict):
             params = {}

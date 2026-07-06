@@ -6,33 +6,56 @@ A multi-user web platform that lets visitors explore metadata and reviews of ~10
 
 ```
 Steam-Game-Data-Demo/
-├── back_end/                 # FastAPI service (deploy to a VPS - GCP)
+├── back_end/                  # FastAPI service (deploy to a VPS / Cloud Run)
 │   ├── app/
-│   │   ├── api/v1/           # auth, games, reviews, dashboard, AI agent, admin
-│   │   ├── core/             # config, security, rate-limit, exceptions
-│   │   ├── db/               # async session + SQLAlchemy base
-│   │   ├── models/           # games, reviews, users (Steam + app_users), RBAC tables
-│   │   ├── schemas/          # Pydantic request/response models
-│   │   └── services/         # auth, steam, AI agent (Charting + ExecuteQuery tools)
-│   ├── db_extra_tables.sql   # Tables NOT yet created on Supabase -> run once
-│   ├── db_init_supabase.sql  # Full reference schema (only if you need to rebuild)
-│   ├── Dockerfile            # Optional container image
+│   │   ├── api/v1/            # auth, games, reviews, dashboard, AI agent, admin
+│   │   ├── core/              # config, security, rate-limit, exceptions, log_config
+│   │   ├── db/                # async session + SQLAlchemy base (read-only engine)
+│   │   ├── models/            # games, reviews, users (Steam + app_users), RBAC tables
+│   │   ├── schemas/           # Pydantic request/response models
+│   │   ├── services/          # auth, steam, AI agent (Charting + ExecuteQuery tools)
+│   │   └── utils/             # auth_cookies, signed_urls
+│   ├── alembic/               # Database migrations
+│   ├── db_extra_tables.sql    # Tables NOT yet created on Supabase -> run once
+│   ├── db_init_supabase.sql   # Full reference schema (only if you need to rebuild)
+│   ├── db_readonly_user.sql   # Read-only DB role for AI SQL execution (defense-in-depth)
+│   ├── Dockerfile             # Optional container image
 │   ├── requirements.txt
+│   ├── alembic.ini
 │   ├── .env.example
-│   └── README.md             # Backend-specific setup
+│   └── README.md              # Backend-specific setup
 │
-├── db_admin/                 # Optional Flask admin panel (run locally only)
+├── db_admin/                  # Optional Flask admin panel (run locally only)
 │   ├── app.py
 │   ├── config.py
 │   ├── templates/
 │   └── README.md
 │
-├── front_end/                # Placeholder for the Vercel-hosted front-end
+├── front_end/                 # Next.js 14 (App Router) deployed to Vercel
+│   ├── src/
+│   │   ├── app/               # routes, error.tsx, global-error.tsx, not-found.tsx, loading.tsx
+│   │   ├── components/        # UI components + renderers
+│   │   ├── hooks/             # useAuth, useDashboard, ...
+│   │   ├── lib/               # api.ts (axios + httpOnly cookies), auth.ts, types.ts
+│   │   ├── store/             # Zustand stores (auth, serverStatus)
+│   │   ├── middleware.ts      # Security headers + auth redirect
+│   │   └── utils/             # permissions.ts, format.ts
+│   ├── .env.local.example
+│   ├── next.config.mjs
+│   ├── tailwind.config.ts
+│   ├── vercel.json
 │   └── README.md
 │
-├── SCHEMA_DOCUMENTATION.md   # Database schema reference
-├── Instruction.md            # Project brief (Vietnamese)
-├── DEPLOY.md                 # Deployment guide (with / without Docker)
+├── deploy/
+│   ├── nginx/steam-api.conf   # Production nginx config (SSL + security headers)
+│   ├── steam-sync.service     # systemd unit for data sync
+│   ├── steam-sync.timer       # systemd timer
+│   └── vps_sync.sh            # Manual sync script
+│
+├── .github/workflows/ci.yml   # CI pipeline (backend tests + frontend lint/build)
+├── SCHEMA_DOCUMENTATION.md    # Database schema reference
+├── Instruction.md             # Project brief (Vietnamese)
+├── DEPLOY.md                  # Deployment guide (with / without Docker)
 └── .gitignore
 ```
 
@@ -40,12 +63,29 @@ Steam-Game-Data-Demo/
 
 | Layer | Technology |
 |---|---|
-| Back-end | Python 3.11+, FastAPI, SQLAlchemy 2 (async), asyncpg, Redis, OpenAI SDK (OpenRouter), JWT auth, RBAC |
-| Database | PostgreSQL on Supabase (free tier, public schema) |
+| Back-end | Python 3.11+, FastAPI, SQLAlchemy 2 (async), asyncpg, Redis, OpenAI SDK (OpenRouter), JWT auth + httpOnly cookies, RBAC |
+| Database | PostgreSQL on Supabase (free tier, public schema) + read-only role for AI |
 | Cache / Rate-limit | Redis on Upstash (free tier) |
 | AI | OpenRouter API (free models), tool-calling agent (Charting + ExecuteQuery) |
+| Migrations | Alembic |
 | Admin panel | Flask + SQLAlchemy (run locally, NOT on the VPS) |
-| Front-end (future) | Next.js / React on Vercel |
+| Front-end | Next.js 14 (App Router) + TypeScript + Tailwind, httpOnly cookie auth |
+| Reverse proxy | nginx (SSL termination, rate-limit, security headers) |
+| Deploy | Back-end on GCP Cloud Run / VPS, front-end on Vercel (both free tier) |
+| CI/CD | GitHub Actions |
+
+## Security features
+
+- **httpOnly cookies** for JWT (XSS-resistant)
+- **HMAC signed URLs** for sandbox-generated files
+- **Read-only DB role** for AI SQL execution (defense-in-depth)
+- **Rate limiting** (per-IP, per-bucket) for all endpoints
+- **Security headers** in FastAPI middleware + nginx + Next.js
+- **CORS** allowlist (not `*`) in production
+- **Path traversal** protection for file serving
+- **Prepared statement cache disabled** to avoid issues through pgbouncer
+- **CORS-aware middleware** that normalises DATABASE_URL passwords
+- **session-level isolation** (main engine for writes, readonly engine for AI)
 
 ## Roles & permissions
 
@@ -64,12 +104,29 @@ Read **[DEPLOY.md](DEPLOY.md)** for the full step-by-step guide (with and withou
 
 In short:
 1. Create a Supabase project, run `back_end/db_extra_tables.sql` once.
-2. Create an Upstash Redis database, copy the connection URL.
-3. Get an OpenRouter API key.
-4. Configure `back_end/.env` (copy from `.env.example`).
-5. Deploy `back_end/` to a VPS (GCP free tier) — see DEPLOY.md.
-6. (Optional) `db_admin/` is a local-only Flask panel for direct DB inspection.
-7. (Future) build the front-end in `front_end/` and deploy to Vercel.
+2. (Recommended) Run `back_end/db_readonly_user.sql` to create the `steam_readonly` role.
+3. (Recommended) Run `back_end/alembic upgrade head` instead of running raw SQL.
+4. Create an Upstash Redis database, copy the connection URL.
+5. Get an OpenRouter API key.
+6. Configure `back_end/.env` (copy from `.env.example`).
+7. Deploy `back_end/` to a VPS (GCP free tier) or Cloud Run — see DEPLOY.md.
+8. (Optional) `db_admin/` is a local-only Flask panel for direct DB inspection.
+9. Configure `front_end/.env.local` and deploy to Vercel.
+
+## Testing
+
+```bash
+# Backend
+cd back_end
+pip install -r requirements.txt
+pytest
+
+# Frontend
+cd front_end
+npm ci
+npm run lint
+npm run build
+```
 
 ## License
 

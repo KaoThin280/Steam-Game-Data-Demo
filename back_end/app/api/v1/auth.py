@@ -1,8 +1,10 @@
 """
 Auth API - Đăng ký, Đăng nhập, Refresh Token, Profile.
+Tokens được set dưới dạng httpOnly cookies để bảo mật (Item #5).
 Có rate limit riêng cho login/register (chống brute force).
 """
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import (
@@ -13,14 +15,13 @@ from app.api.dependencies import (
 from app.core.config import settings
 from app.core.rate_limit import rate_limit
 from app.db.session import get_db
-from app.models.user import AppUser, Role, Permission
+from app.models.user import AppUser
 from app.schemas.token_schema import (
     AccessTokenResponse,
     RefreshTokenRequest,
     TokenResponse,
 )
 from app.schemas.user_schema import (
-    AssignRoleRequest,
     UserCreate,
     UserLogin,
     UserMe,
@@ -29,40 +30,30 @@ from app.schemas.user_schema import (
     UserUpdate,
 )
 from app.services.auth_service import AuthService
+from app.utils.auth_cookies import (
+    clear_auth_cookies,
+    set_access_cookie,
+    set_auth_cookies,
+)
+from app.utils.user_helpers import user_to_out
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 # ============ Helpers ============
-def _user_to_out(user: AppUser) -> UserOut:
-    """Convert AppUser ORM -> UserOut schema (flatten roles + permissions)."""
-    role_names = []
-    perm_names = []
-    seen_perms = set()
-    for ur in (user.roles or []):
-        if ur.role is None:
-            continue
-        role_names.append(ur.role.role_name)
-        for rp in (ur.role.permissions or []):
-            if rp.permission and rp.permission.permission_name not in seen_perms:
-                seen_perms.add(rp.permission.permission_name)
-                perm_names.append(rp.permission.permission_name)
-    return UserOut(
-        id=user.id,
-        username=user.username,
-        email=user.email,
-        full_name=user.full_name,
-        is_active=user.is_active,
-        created_at=user.created_at,
-        last_login=user.last_login,
-        roles=role_names,
-        permissions=sorted(perm_names),
-    )
-
-
 def _me_to_out(user: AppUser) -> UserMe:
-    base = _user_to_out(user)
+    base = user_to_out(user)
     return UserMe(**base.model_dump())
+
+
+def _build_token_payload(tokens: TokenResponse) -> dict:
+    """Return JSON body with token info (for clients that still want it)."""
+    return {
+        "access_token": tokens.access_token,
+        "refresh_token": tokens.refresh_token,
+        "token_type": tokens.token_type,
+        "expires_in": tokens.expires_in,
+    }
 
 
 # ============ Register / Login / Logout / Refresh ============
@@ -84,38 +75,54 @@ async def register(
         bucket="auth-register",
     )
     user = await auth_service.register(payload)
-    return _user_to_out(user)
+    return user_to_out(user)
 
 
 @router.post(
     "/login",
-    response_model=TokenResponse,
-    summary="Đăng nhập",
+    summary="Đăng nhập (set httpOnly cookies + trả body cho client)",
 )
 async def login(
     request: Request,
+    response: Response,
     payload: UserLogin,
     auth_service: AuthService = Depends(get_auth_service),
 ):
+    """
+    Đăng nhập. Tokens được set dưới dạng httpOnly cookies (XSS-resistant)
+    và cũng trả về trong JSON body để client có thể lưu vào memory.
+    """
     await rate_limit(
         request,
         limit=settings.RATE_LIMIT_AUTH_PER_MINUTE,
         window=60,
         bucket="auth-login",
     )
-    return await auth_service.login(payload)
+    tokens = await auth_service.login(payload)
+    set_auth_cookies(
+        response,
+        tokens.access_token,
+        tokens.refresh_token,
+        access_expires_seconds=tokens.expires_in,
+        refresh_expires_seconds=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+    )
+    return _build_token_payload(tokens)
 
 
 @router.post(
     "/refresh",
     response_model=AccessTokenResponse,
-    summary="Làm mới access token",
+    summary="Làm mới access token (set httpOnly cookie mới)",
 )
 async def refresh_token(
     request: Request,
+    response: Response,
     payload: RefreshTokenRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ):
+    """
+    Refresh access token. Cookie mới được set tự động.
+    """
     await rate_limit(
         request,
         limit=settings.RATE_LIMIT_AUTH_PER_MINUTE,
@@ -123,6 +130,7 @@ async def refresh_token(
         bucket="auth-refresh",
     )
     result = await auth_service.refresh_access_token(payload.refresh_token)
+    set_access_cookie(response, result.access_token, result.expires_in)
     return AccessTokenResponse(
         access_token=result.access_token,
         token_type=result.token_type,
@@ -133,13 +141,15 @@ async def refresh_token(
 @router.post(
     "/logout",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Đăng xuất (revoke refresh token)",
+    summary="Đăng xuất (revoke refresh token + clear cookies)",
 )
 async def logout(
+    response: Response,
     token: str = Depends(verify_refresh_token),
     auth_service: AuthService = Depends(get_auth_service),
 ):
     await auth_service.logout(token)
+    clear_auth_cookies(response)
     return None
 
 
@@ -177,9 +187,9 @@ async def change_password(
     current_user: AppUser = Depends(get_current_active_user),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    if payload.new_password != payload.confirm_new_password:
-        from app.core.exceptions import UnauthorizedException
+    from app.core.exceptions import UnauthorizedException
 
+    if payload.new_password != payload.confirm_new_password:
         raise UnauthorizedException(detail="Mật khẩu xác nhận không khớp.")
     await auth_service.change_password(
         current_user, payload.old_password, payload.new_password

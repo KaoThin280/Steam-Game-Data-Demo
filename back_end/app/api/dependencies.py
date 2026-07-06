@@ -1,13 +1,13 @@
 """
 API Dependencies - FastAPI dependencies:
-  - Authentication (JWT access token)
+  - Authentication (JWT access token via httpOnly cookie OR Bearer header)
   - Active user check
   - Role-based authorization (admin, analyst, scientist, viewer)
   - Permission-based authorization (granular perms)
 """
 from typing import Optional
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +16,7 @@ from app.core.exceptions import ForbiddenException, UnauthorizedException
 from app.db.session import get_db
 from app.models.user import AppUser, RoleName
 from app.services.auth_service import AuthService
+from app.utils.auth_cookies import COOKIE_ACCESS, COOKIE_REFRESH
 
 # OAuth2 scheme cho Swagger docs
 oauth2_scheme = OAuth2PasswordBearer(
@@ -27,14 +28,21 @@ oauth2_scheme = OAuth2PasswordBearer(
 # ============ Authentication ============
 async def get_current_user(
     token: Optional[str] = Depends(oauth2_scheme),
+    sgd_access_token: Optional[str] = Cookie(default=None, alias=COOKIE_ACCESS),
     db: AsyncSession = Depends(get_db),
 ) -> AppUser:
-    """Lấy user hiện tại từ access token (Bearer)."""
-    if not token:
+    """
+    Lấy user hiện tại từ access token.
+
+    Ưu tiên: httpOnly cookie (an toàn hơn) → Bearer header (backward compat).
+    """
+    # Cookie takes precedence (set by login endpoint).
+    access_token = sgd_access_token or token
+    if not access_token:
         raise UnauthorizedException(detail="Thiếu access token.")
 
     auth_service = AuthService(db)
-    return await auth_service.get_current_user_from_token(token)
+    return await auth_service.get_current_user_from_token(access_token)
 
 
 async def get_current_active_user(
@@ -103,15 +111,20 @@ get_current_admin_or_scientist = require_role(
 
 # ============ Refresh-token dep ============
 async def verify_refresh_token(
+    sgd_refresh_token: Optional[str] = Cookie(default=None, alias=COOKIE_REFRESH),
     authorization: Optional[str] = Header(None),
 ) -> str:
-    """Lấy refresh token từ header Authorization."""
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Thiếu refresh token.",
-        )
-    return authorization.split(" ", 1)[1]
+    """
+    Lấy refresh token: ưu tiên httpOnly cookie, fallback Bearer header.
+    """
+    if sgd_refresh_token:
+        return sgd_refresh_token
+    if authorization and authorization.lower().startswith("bearer "):
+        return authorization.split(" ", 1)[1]
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Thiếu refresh token.",
+    )
 
 
 # ============ Service injection ============

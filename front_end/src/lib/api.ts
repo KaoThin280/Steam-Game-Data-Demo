@@ -16,7 +16,11 @@ import type { AuthTokens, ServerStage } from "@/lib/types";
 const baseURL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
-export const api = axios.create({ baseURL, timeout: 60_000 });
+export const api = axios.create({
+  baseURL,
+  timeout: 60_000,
+  withCredentials: true, // Send httpOnly cookies on same-origin / CORS
+});
 
 // Listeners can subscribe to stage changes for a richer status UI.
 type StageListener = (stage: ServerStage, detail?: string) => void;
@@ -32,7 +36,11 @@ const emitStage = (stage: ServerStage, detail?: string) => {
 
 // Map axios lifecycle -> ServerStage.
 api.interceptors.request.use((cfg) => {
-  emitStage("fetching", cfg.url);
+  // Skip stage emission for the dedicated status ping path to avoid
+  // re-rendering the whole app on every periodic ping.
+  if (!cfg.url?.includes("/dashboard/overview")) {
+    emitStage("fetching", cfg.url);
+  }
   const access = useAuthStore.getState().accessToken;
   if (access) {
     cfg.headers = cfg.headers ?? {};
@@ -43,7 +51,9 @@ api.interceptors.request.use((cfg) => {
 
 api.interceptors.response.use(
   (res) => {
-    emitStage("connected");
+    if (!res.config.url?.includes("/dashboard/overview")) {
+      emitStage("connected");
+    }
     return res;
   },
   async (err: AxiosError) => {
@@ -53,7 +63,11 @@ api.interceptors.response.use(
       try {
         const refresh = useAuthStore.getState().refreshToken;
         if (!refresh) throw err;
-        const { data } = await axios.post<AuthTokens>(
+        // IMPORTANT: use `api` instance (not the bare `axios`) so that
+        // withCredentials is honoured - the BE sets the refreshed
+        // access_token cookie on this response, and we need the browser
+        // to accept it.
+        const { data } = await api.post<AuthTokens>(
           `${baseURL}/auth/refresh`,
           { refresh_token: refresh }
         );
@@ -64,6 +78,21 @@ api.interceptors.response.use(
         return api.request(original);
       } catch {
         useAuthStore.getState().clear();
+        // Redirect to login page on auth failure (client-side only)
+        if (typeof window !== "undefined") {
+          const currentPath =
+            window.location.pathname + window.location.search;
+          if (
+            currentPath !== "/login" &&
+            currentPath !== "/register" &&
+            !currentPath.startsWith("/login?")
+          ) {
+            // Use backticks so the template literal interpolates correctly.
+            window.location.href = `/login?redirect=${encodeURIComponent(
+              currentPath
+            )}`;
+          }
+        }
       }
     }
     emitStage("error", err.message);

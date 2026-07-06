@@ -24,13 +24,10 @@ class GameOut(BaseModel):
     developers: Optional[str] = None
     price_text: Optional[str] = None
     created_at: Optional[datetime] = None
-    genres: List[str] = []
+    # Populated from Game.genre_names property (loaded via game_genres -> genre)
+    genres: List[str] = Field(default=[], alias="genre_names")
 
-    # NOTE: the `supported_languages` / `categories` / `genres` fields
-    # have been removed from the public.games schema. The FE may still
-    # send them - they are ignored at validation time (extra="ignore").
-
-    model_config = ConfigDict(from_attributes=True, extra="ignore")
+    model_config = ConfigDict(from_attributes=True, extra="ignore", populate_by_name=True)
 
 
 class GameListResponse(BaseModel):
