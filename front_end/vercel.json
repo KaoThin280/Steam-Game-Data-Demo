@@ -5,7 +5,17 @@
   "rewrites": [
     {
       "source": "/api/v1/:path*",
-      "destination": "http://35.212.245.111:8000/api/v1/:path*"
+      "destination": "http://35.212.195.195:8000/api/v1/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/:path*",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
     }
   ]
 }
