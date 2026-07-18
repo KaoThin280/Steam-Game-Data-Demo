@@ -34,7 +34,7 @@ export function PlotlyHtmlRenderer({
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const fileUrl = `${API_BASE}/data-files/${filename}`;
-
+  console.log("PlotlyHtmlRenderer: fileUrl", fileUrl);
   const handleLoad = useCallback(() => {
     setLoading(false);
   }, []);
