@@ -4,37 +4,48 @@ import { useMemo, useState } from "react";
 import { BarChart3, ChevronLeft, ChevronRight, Image, Code } from "lucide-react";
 
 import { ChartRenderer } from "@/components/analytics/ChartRenderer";
+import { PlotlyChartRenderer } from "@/components/Renderers/PlotlyChartRenderer";
 import { PlotlyHtmlRenderer } from "@/components/Renderers/PlotlyHtmlRenderer";
-import type { AiChartSpec } from "@/lib/types";
+import type { AiChartSpec, PlotlySpec } from "@/lib/types";
 import { classNames } from "@/utils/format";
 
 interface VisualizationViewerProps {
   /** Chart.js specs from the chat backend */
   charts?: AiChartSpec[];
-  /** Sandbox files from execute_python_code */
+  /**
+   * Plotly figures as JSON specs (returned by the E2B sandbox as
+   * fig.to_dict()). Rendered directly via react-plotly.js, no iframe
+   * involved.
+   */
+  plotlySpecs?: PlotlySpec[];
+  /** Optional title for the most-recent Plotly figure. */
+  plotlyTitle?: string;
+  /** Sandbox files from execute_python_code (legacy iframe HTML, PNG, etc.) */
   sandboxFiles?: string[];
   /** Optional className */
   className?: string;
 }
 
-type TabType = "chartjs" | "html" | "png";
+type TabType = "plotly" | "html" | "png";
 
 /**
  * VisualizationViewer — groups multiple visualizations into a
  * tabbed carousel interface.
  *
- * - "Chart.js" tab: lists all ChartRenderer charts
- * - "Interactive" tab: lists Plotly HTML files
- * - "Images" tab: lists PNG files
- *
- * Each tab supports prev/next navigation when multiple items exist.
+ * - "Interactive" tab: Plotly figures rendered via react-plotly.js
+ *   (preferred — no iframe, no CSP / X-Frame-Options issues).
+ * - "Chart.js" tab: lists all ChartRenderer charts.
+ * - "HTML" tab: legacy Plotly HTML files served via /api/v1/data-files.
+ * - "Images" tab: PNG files.
  */
 export function VisualizationViewer({
   charts = [],
+  plotlySpecs = [],
+  plotlyTitle,
   sandboxFiles = [],
   className = "",
 }: VisualizationViewerProps) {
-  const [activeTab, setActiveTab] = useState<TabType>("chartjs");
+  const [activeTab, setActiveTab] = useState<TabType>("plotly");
   const [activeIndex, setActiveIndex] = useState(0);
 
   const htmlFiles = useMemo(
@@ -46,27 +57,37 @@ export function VisualizationViewer({
     [sandboxFiles]
   );
 
+  const hasPlotly = plotlySpecs.length > 0;
   const hasCharts = charts.length > 0;
   const hasHtml = htmlFiles.length > 0;
   const hasPng = pngFiles.length > 0;
 
   // Auto-switch tab if active tab has no items but others do
   const resolvedTab: TabType = useMemo(() => {
-    if (activeTab === "chartjs" && !hasCharts && (hasHtml || hasPng)) {
-      return hasHtml ? "html" : "png";
+    const ordered: TabType[] = ["plotly", "html", "png"];
+    if (ordered.includes(activeTab)) {
+      const hasCurrent =
+        (activeTab === "plotly" && hasPlotly) ||
+        (activeTab === "html" && hasHtml) ||
+        (activeTab === "png" && hasPng);
+      if (hasCurrent) return activeTab;
     }
-    if (activeTab === "html" && !hasHtml && (hasCharts || hasPng)) {
-      return hasCharts ? "chartjs" : "png";
-    }
-    if (activeTab === "png" && !hasPng && (hasCharts || hasHtml)) {
-      return hasCharts ? "chartjs" : "html";
+    // Pick the first tab that has items
+    for (const t of ordered) {
+      if (
+        (t === "plotly" && hasPlotly) ||
+        (t === "html" && hasHtml) ||
+        (t === "png" && hasPng)
+      ) {
+        return t;
+      }
     }
     return activeTab;
-  }, [activeTab, hasCharts, hasHtml, hasPng]);
+  }, [activeTab, hasPlotly, hasCharts, hasHtml, hasPng]);
 
   const totalItems =
-    resolvedTab === "chartjs"
-      ? charts.length
+    resolvedTab === "plotly"
+      ? plotlySpecs.length
       : resolvedTab === "html"
       ? htmlFiles.length
       : pngFiles.length;
@@ -82,7 +103,7 @@ export function VisualizationViewer({
   };
 
   // Nothing to show
-  if (!hasCharts && !hasHtml && !hasPng) {
+  if (!hasPlotly && !hasCharts && !hasHtml && !hasPng) {
     return null;
   }
 
@@ -90,15 +111,15 @@ export function VisualizationViewer({
     <div className={classNames("my-3 rounded-lg border border-white/5 bg-bg/40 overflow-hidden", className)}>
       {/* Tabs */}
       <div className="flex border-b border-white/5">
-        {hasCharts && (
+        {hasPlotly && (
           <TabButton
-            active={resolvedTab === "chartjs"}
+            active={resolvedTab === "plotly"}
             onClick={() => {
-              setActiveTab("chartjs");
+              setActiveTab("plotly");
               setActiveIndex(0);
             }}
             icon={<BarChart3 className="h-3.5 w-3.5" />}
-            label={`Charts (${charts.length})`}
+            label={`Charts (${plotlySpecs.length})`}
           />
         )}
         {hasHtml && (
@@ -109,7 +130,7 @@ export function VisualizationViewer({
               setActiveIndex(0);
             }}
             icon={<Code className="h-3.5 w-3.5" />}
-            label={`Interactive (${htmlFiles.length})`}
+            label={`Legacy HTML (${htmlFiles.length})`}
           />
         )}
         {hasPng && (
@@ -147,17 +168,32 @@ export function VisualizationViewer({
 
         {/* Tab content */}
         <div className="p-2">
-          {resolvedTab === "chartjs" && hasCharts && (
+          {resolvedTab === "plotly" && hasPlotly && (
             <div>
               <div className="mb-1 text-xs text-white/50 text-center">
-                {charts[safeIndex]?.chart_title || `Chart ${safeIndex + 1}`}
+                {plotlyTitle ??
+                  (() => {
+                    const spec = plotlySpecs[safeIndex];
+                    const layout = spec?.layout as Record<string, unknown> | undefined;
+                    const lt = layout?.title;
+                    if (typeof lt === "string") return lt;
+                    if (typeof lt === "object" && lt !== null && "text" in lt) {
+                      return (lt as Record<string, unknown>).text as string;
+                    }
+                    return null;
+                  })() ??
+                  `Interactive (${safeIndex + 1}/${totalItems})`}
                 {hasMultiple && (
                   <span className="ml-2 text-white/30">
                     ({safeIndex + 1}/{totalItems})
                   </span>
                 )}
               </div>
-              <ChartRenderer spec={charts[safeIndex]} height={280} />
+              <PlotlyChartRenderer
+                spec={plotlySpecs[safeIndex]}
+                title={plotlyTitle}
+                height={320}
+              />
             </div>
           )}
 
@@ -231,7 +267,7 @@ function TabButton({
       )}
     >
       {icon}
-      {label}
+      <span>{label}</span>
     </button>
   );
 }

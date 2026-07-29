@@ -60,6 +60,8 @@ class ChatResponse(BaseModel):
     session_id: str
     reply: str
     charts: List[ChartItem] = []
+    plotly_specs: List[dict] = []
+    plotly_title: Optional[str] = None
     sandbox_files: List[str] = []
     workflow_events: List[WorkflowEvent] = []
     status: str = "success"

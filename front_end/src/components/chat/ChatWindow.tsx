@@ -13,7 +13,7 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ className }: ChatWindowProps) {
-  const { messages, send, reset, isSending, workflowEvents } = useChat();
+  const { messages, send, reset, isSending } = useChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
 

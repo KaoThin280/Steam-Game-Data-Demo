@@ -7,23 +7,23 @@ import type {
   ChatMessage,
   ChatRequestPayload,
   ChatResponse,
-  WorkflowEvent,
 } from "@/lib/types";
 
 /**
  * Unified chat hook — calls /ai/chat which has all 5 tools.
- * Tracks workflow events for real-time progress display.
+ *
+ * Workflow events (tool calls, LLM steps) are attached per-message
+ * on the assistant ChatMessage so each bubble can show its own
+ * progress inline.
  */
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [workflowEvents, setWorkflowEvents] = useState<WorkflowEvent[]>([]);
 
   const reset = useCallback(() => {
     setMessages([]);
     setSessionId(null);
-    setWorkflowEvents([]);
   }, []);
 
   const send = useCallback(
@@ -32,7 +32,6 @@ export function useChat() {
       const userMsg: ChatMessage = { role: "user", content: text };
       setMessages((m) => [...m, userMsg]);
       setIsSending(true);
-      setWorkflowEvents([]);
 
       const payload: ChatRequestPayload = {
         message: text,
@@ -43,14 +42,16 @@ export function useChat() {
         setStage("generating", "/ai/chat");
         const r = await apiPost<ChatResponse>("/ai/chat", payload, 180000); // 3 min timeout for E2B + retries
         setSessionId(r.session_id);
-        setWorkflowEvents(r.workflow_events || []);
         setMessages((m) => [
           ...m,
           {
             role: "assistant",
             content: r.reply,
             charts: r.charts,
+            plotlySpecs: r.plotly_specs,
+            plotlyTitle: r.plotly_title,
             sandboxFiles: r.sandbox_files,
+            workflowEvents: r.workflow_events || [],
           },
         ]);
       } catch (e) {
@@ -67,5 +68,5 @@ export function useChat() {
     [sessionId]
   );
 
-  return { messages, sessionId, isSending, workflowEvents, send, reset };
+  return { messages, sessionId, isSending, send, reset };
 }

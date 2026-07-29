@@ -274,6 +274,7 @@ class AIChartHistory(Base):
     series_label: Mapped[Optional[str]] = mapped_column(Text)
     config: Mapped[dict] = mapped_column(JSONB, nullable=False)
     source_query: Mapped[Optional[str]] = mapped_column(Text)
+    description: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

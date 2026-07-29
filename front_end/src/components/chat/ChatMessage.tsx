@@ -1,11 +1,13 @@
 "use client";
 
-import { Bot, User, AlertCircle, FileText } from "lucide-react";
+import { useState } from "react";
+import { Bot, User, AlertCircle, FileText, ChevronDown, ChevronRight, ListChecks } from "lucide-react";
 
 import { ChartRenderer } from "@/components/analytics/ChartRenderer";
 import { PlotlyHtmlRenderer } from "@/components/Renderers/PlotlyHtmlRenderer";
 import { DataTableViewer } from "@/components/Renderers/DataTableViewer";
 import { VisualizationViewer } from "@/components/Renderers/VisualizationViewer";
+import { WorkflowProgress } from "@/components/chat/WorkflowProgress";
 import type { ChatMessage as Msg } from "@/lib/types";
 import { classNames } from "@/utils/format";
 
@@ -61,9 +63,16 @@ export function ChatMessage({ message }: ChatMessageProps) {
       >
         <div className="whitespace-pre-wrap">{message.content}</div>
 
+        {/* Workflow progress — collapsible timeline for assistant messages */}
+        {!isUser && message.workflowEvents && message.workflowEvents.length > 0 && (
+          <WorkflowTimeline events={message.workflowEvents} />
+        )}
+
         {/* VisualizationViewer — groups charts, HTML, PNG into tabs/carousel */}
         <VisualizationViewer
           charts={message.charts}
+          plotlySpecs={message.plotlySpecs}
+          plotlyTitle={message.plotlyTitle}
           sandboxFiles={message.sandboxFiles}
         />
 
@@ -111,6 +120,39 @@ export function ChatMessage({ message }: ChatMessageProps) {
       {isUser && (
         <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/80">
           <User className="h-4 w-4" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WorkflowTimeline({ events }: { events: import("@/lib/types").WorkflowEvent[] }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Count errors and tools
+  const toolCount = events.filter(e => e.stage === "tool_call").length;
+  const errorCount = events.filter(e => e.type === "error").length;
+
+  return (
+    <div className="mt-2 border border-white/10 rounded-md overflow-hidden">
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="flex items-center gap-1.5 w-full px-2.5 py-1.5 text-xs text-white/60 hover:bg-white/5 transition-colors"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3 w-3" />
+        ) : (
+          <ChevronDown className="h-3 w-3" />
+        )}
+        <ListChecks className="h-3 w-3" />
+        <span>{toolCount} tool{toolCount !== 1 ? "s" : ""}</span>
+        {errorCount > 0 && (
+          <span className="text-red-400">({errorCount} error{errorCount !== 1 ? "s" : ""})</span>
+        )}
+      </button>
+      {!collapsed && (
+        <div className="px-1 pb-1">
+          <WorkflowProgress events={events} isActive={false} />
         </div>
       )}
     </div>

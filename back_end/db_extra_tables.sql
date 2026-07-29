@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS ai_chart_history (
     series_label   TEXT,
     config         JSONB NOT NULL,                 -- Chart.js-ready config (safe subset)
     source_query   TEXT,                          -- optional SQL the chart is based on
+    description    TEXT,                          -- NLP description for chart caching & reuse
     created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_chart_user_session

@@ -209,6 +209,9 @@ Default Permissions Matrix:
 | 8 | `role_permissions` | Junction table for Role ↔ Permission |
 | 9 | `app_users` | Internal application accounts |
 | 10 | `user_roles` | Junction table for App User ↔ Role |
+| 11 | `refresh_tokens` | JWT refresh tokens with revoke support |
+| 12 | `chat_histories` | AI chat conversation logs (role, content, session_id) |
+| 13 | `ai_chart_history` | AI-generated chart configurations (Plotly specs, source queries, descriptions for caching/reuse) |
 
 ---
 *End of schema documentation.*

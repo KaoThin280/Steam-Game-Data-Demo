@@ -105,3 +105,7 @@ BACKEND_API_DOCUMENTATION.md
 BACKEND_API_DOCUMENTATION.docx
 md_to_docx.py
 .github/workflows/ci.yml
+back_end/test_chat_workflow.py
+BACKEND_RAG_INTEGRATION_ANALYSIS.md
+CHATBOT_INSTRUCTIONS.md
+/back_end/temp_data

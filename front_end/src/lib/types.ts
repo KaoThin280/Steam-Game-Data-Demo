@@ -140,16 +140,13 @@ export interface AiToolCall {
 }
 
 export interface AiToolResult {
-  // execute_query
   columns?: string[];
   rows?: unknown[][];
   row_count?: number;
   truncated?: boolean;
-  // charting
   chart_id?: number;
   chart_type?: string;
   chart_title?: string;
-  // common
   error?: string;
 }
 
@@ -169,25 +166,46 @@ export interface AiChartSpec {
   chart_id?: number;
 }
 
+/**
+ * A Plotly figure spec (the raw {data: [...], layout: {...}} dict).
+ * 
+ * Backend returns this directly in `plotly_specs` — a JSON-serialized
+ * Plotly figure generated via fig.to_json() / fig.to_dict() in Python.
+ */
+export type PlotlySpec = Record<string, unknown>;
+
 export interface ChatMessage {
   id?: string;
   role: "user" | "assistant" | "system";
   content: string;
   /**
-   * Rendered charts (Chart.js specs). Backend may attach these even though
-   * the raw tool_calls are hidden.
+   * Rendered charts (Chart.js specs). Backend may attach these even
+   * though the raw tool_calls are hidden.
    */
   charts?: AiChartSpec[];
   /**
-   * Sandbox-generated files (.html = interactive Plotly, .png = static image)
-   * accessible at /api/v1/temp_data/{filename}.
+   * Sandbox-generated Plotly figures as JSON specs (the result of
+   * fig.to_dict() / fig.to_json() in Python). Rendered directly via
+   * react-plotly.js (no iframe, no CSP / X-Frame-Options issues).
+   */
+  plotlySpecs?: PlotlySpec[];
+  /**
+   * Optional title for the latest Plotly figure.
+   */
+  plotlyTitle?: string;
+  /**
+   * Sandbox-generated files (.html = legacy interactive Plotly iframe,
+   * .png = static image) accessible at /api/v1/temp_data/{filename}.
    */
   sandboxFiles?: string[];
   /**
-   * @deprecated Internal-only. The backend strips tool_calls from the
-   * payload so the user never sees raw SQL / JSON tool arguments. This
-   * field is kept as optional for backwards compatibility but is no
-   * longer populated by the server.
+   * Workflow events captured for this message (tool calls, LLM steps,
+   * errors). Shown inline as a collapsible progress timeline.
+   */
+  workflowEvents?: WorkflowEvent[];
+  /**
+   * @deprecated Internal-only. Kept for backwards compatibility; the
+   * server no longer populates this field.
    */
   tool_calls?: Array<{ name: string; result: unknown }>;
   created_at?: string;
@@ -205,9 +223,8 @@ export interface ChatRequestPayload {
 
 /**
  * Response from POST /api/v1/ai/chat (SQL + Chart agent).
- *
- * The user only sees ``reply`` (natural-language) and ``charts`` (rendered
- * Chart.js specs). Internal ``tool_calls`` are intentionally omitted from
+ * The user only sees `reply` (natural-language) and `charts` (rendered
+ * Chart.js specs). Internal `tool_calls` are intentionally omitted from
  * the server response.
  */
 export interface WorkflowEvent {
@@ -220,8 +237,9 @@ export interface ChatResponse {
   session_id: string;
   reply: string;
   charts: AiChartSpec[];
+  plotly_specs?: PlotlySpec[];
+  plotly_title?: string;
   sandbox_files: string[];
   workflow_events: WorkflowEvent[];
   status?: "success" | "error";
 }
-
