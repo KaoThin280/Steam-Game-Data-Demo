@@ -38,35 +38,33 @@ jobs:
             # including MCP_SHARED_SECRET and DATABASE_URL_READONLY.
             test -f .env
 
-            ensure_random_secret() {
-              secret_name="$1"
-              current_value=$(sed -n "s/^${secret_name}=//p" .env | tail -n 1)
-              needs_secret=0
-              if [ -z "$current_value" ]; then
-                needs_secret=1
-              elif printf '%s' "$current_value" | grep -Eq '^(change-me-|replace-with-)'; then
-                needs_secret=1
+            echo "Checking protected VPS environment settings."
+            if ! grep -Eq '^SECRET_KEY=.{32,}$' .env || grep -Eq '^SECRET_KEY=(change-me-|replace-with-)' .env; then
+              generated_secret=$(openssl rand -hex 32)
+              if grep -q '^SECRET_KEY=' .env; then
+                sed -i "s|^SECRET_KEY=.*|SECRET_KEY=${generated_secret}|" .env
+              else
+                printf '\nSECRET_KEY=%s\n' "$generated_secret" >> .env
               fi
+              echo "Generated missing/placeholder SECRET_KEY in the protected VPS .env."
+            fi
 
-              if [ "$needs_secret" -eq 1 ]; then
-                generated_value=$(openssl rand -hex 32)
-                if grep -q "^${secret_name}=" .env; then
-                  sed -i "s|^${secret_name}=.*|${secret_name}=${generated_value}|" .env
-                else
-                  printf '\n%s=%s\n' "$secret_name" "$generated_value" >> .env
-                fi
-                echo "Generated missing/placeholder ${secret_name} in the protected VPS .env."
+            if ! grep -Eq '^MCP_SHARED_SECRET=.{32,}$' .env || grep -Eq '^MCP_SHARED_SECRET=(change-me-|replace-with-)' .env; then
+              generated_mcp_secret=$(openssl rand -hex 32)
+              if grep -q '^MCP_SHARED_SECRET=' .env; then
+                sed -i "s|^MCP_SHARED_SECRET=.*|MCP_SHARED_SECRET=${generated_mcp_secret}|" .env
+              else
+                printf '\nMCP_SHARED_SECRET=%s\n' "$generated_mcp_secret" >> .env
               fi
-            }
-
-            ensure_random_secret SECRET_KEY
-            ensure_random_secret MCP_SHARED_SECRET
+              echo "Generated missing/placeholder MCP_SHARED_SECRET in the protected VPS .env."
+            fi
 
             if ! grep -Eq '^DATABASE_URL_READONLY=.+$' .env; then
               echo "DATABASE_URL_READONLY is missing from back_end/.env on the VPS."
               exit 1
             fi
 
+            echo "Starting internal MCP server on 127.0.0.1:8001."
             fuser -k 8001/tcp || true
 
             nohup ./venv/bin/python3 -m uvicorn app.mcp_server:app \
@@ -82,11 +80,13 @@ jobs:
               sleep 2
             done
             if [ "$mcp_ready" -ne 1 ]; then
+              echo "MCP health check failed; showing mcp-server.log."
               tail -n 50 mcp-server.log
               exit 1
             fi
 
             # Keep the old public API serving until the new MCP process is ready.
+            echo "MCP is healthy; restarting public API on port 8000."
             fuser -k 8000/tcp || true
             nohup ./venv/bin/python3 -m uvicorn app.main:app \
               --host 0.0.0.0 --port 8000 --workers 1 \
@@ -101,6 +101,7 @@ jobs:
               sleep 2
             done
             if [ "$api_ready" -ne 1 ]; then
+              echo "API health check failed; showing uvicorn.log."
               tail -n 80 uvicorn.log
               exit 1
             fi
