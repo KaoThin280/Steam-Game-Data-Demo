@@ -41,17 +41,22 @@ jobs:
             ensure_random_secret() {
               secret_name="$1"
               current_value=$(sed -n "s/^${secret_name}=//p" .env | tail -n 1)
-              case "$current_value" in
-                ""|change-me-*|replace-with-*)
-                  generated_value=$(openssl rand -hex 32)
-                  if grep -q "^${secret_name}=" .env; then
-                    sed -i "s|^${secret_name}=.*|${secret_name}=${generated_value}|" .env
-                  else
-                    printf '\n%s=%s\n' "$secret_name" "$generated_value" >> .env
-                  fi
-                  echo "Generated missing/placeholder ${secret_name} in the protected VPS .env."
-                  ;;
-              esac
+              needs_secret=0
+              if [ -z "$current_value" ]; then
+                needs_secret=1
+              elif printf '%s' "$current_value" | grep -Eq '^(change-me-|replace-with-)'; then
+                needs_secret=1
+              fi
+
+              if [ "$needs_secret" -eq 1 ]; then
+                generated_value=$(openssl rand -hex 32)
+                if grep -q "^${secret_name}=" .env; then
+                  sed -i "s|^${secret_name}=.*|${secret_name}=${generated_value}|" .env
+                else
+                  printf '\n%s=%s\n' "$secret_name" "$generated_value" >> .env
+                fi
+                echo "Generated missing/placeholder ${secret_name} in the protected VPS .env."
+              fi
             }
 
             ensure_random_secret SECRET_KEY
