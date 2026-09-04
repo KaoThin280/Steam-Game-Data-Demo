@@ -38,6 +38,30 @@ jobs:
             # including MCP_SHARED_SECRET and DATABASE_URL_READONLY.
             test -f .env
 
+            ensure_random_secret() {
+              secret_name="$1"
+              current_value=$(sed -n "s/^${secret_name}=//p" .env | tail -n 1)
+              case "$current_value" in
+                ""|change-me-*|replace-with-*)
+                  generated_value=$(openssl rand -hex 32)
+                  if grep -q "^${secret_name}=" .env; then
+                    sed -i "s|^${secret_name}=.*|${secret_name}=${generated_value}|" .env
+                  else
+                    printf '\n%s=%s\n' "$secret_name" "$generated_value" >> .env
+                  fi
+                  echo "Generated missing/placeholder ${secret_name} in the protected VPS .env."
+                  ;;
+              esac
+            }
+
+            ensure_random_secret SECRET_KEY
+            ensure_random_secret MCP_SHARED_SECRET
+
+            if ! grep -Eq '^DATABASE_URL_READONLY=.+$' .env; then
+              echo "DATABASE_URL_READONLY is missing from back_end/.env on the VPS."
+              exit 1
+            fi
+
             fuser -k 8001/tcp || true
 
             nohup ./venv/bin/python3 -m uvicorn app.mcp_server:app \

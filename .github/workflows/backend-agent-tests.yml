@@ -28,4 +28,4 @@ jobs:
             back_end/requirements.txt
             back_end/requirements-test.txt
       - run: pip install -r requirements-test.txt
-      - run: pytest -q tests
+      - run: python -m pytest -q tests
