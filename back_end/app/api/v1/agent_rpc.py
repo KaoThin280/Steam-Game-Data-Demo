@@ -1,6 +1,7 @@
 """Thin RPC-style HTTP transport for the transport-neutral agent harness."""
 import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -20,9 +21,11 @@ from app.core.rate_limit import rate_limit
 from app.db.session import AsyncSessionLocal, get_db
 from app.models.agent import AgentEvent, AgentRun, AgentSession
 from app.models.user import AppUser
+from app.services.error_notification_service import error_notification_service
 
 router = APIRouter(prefix="/agent-rpc", tags=["Agent Harness RPC"])
 _tasks: dict[str, asyncio.Task] = {}
+logger = logging.getLogger(__name__)
 
 
 class CreateSessionRequest(BaseModel):
@@ -96,6 +99,23 @@ async def _execute(run_id: str, session_id: uuid.UUID) -> None:
     )
     try:
         await runtime.execute(run_id, history)
+        try:
+            async with AsyncSessionLocal() as status_db:
+                failed_run = await status_db.scalar(
+                    select(AgentRun).where(AgentRun.id == uuid.UUID(run_id))
+                )
+                if failed_run is not None and failed_run.status == "failed":
+                    error_notification_service.schedule(
+                        component="agent.run",
+                        error=failed_run.error_message or failed_run.error_code or "Agent run failed",
+                        context={
+                            "run_id": run_id,
+                            "session_id": str(session_id),
+                            "error_code": failed_run.error_code or "UNKNOWN",
+                        },
+                    )
+        except Exception as notification_lookup_error:
+            logger.warning("Could not inspect failed run for notification: %s", notification_lookup_error)
     finally:
         _tasks.pop(run_id, None)
 

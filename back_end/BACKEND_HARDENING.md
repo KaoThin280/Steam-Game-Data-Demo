@@ -14,6 +14,8 @@
 - Session ownership is checked for list/read/rename/delete/task operations. One active run per session is database-enforced.
 - Runs/events are durable, cancellation is persisted and orphaned runs are recovered after restart.
 - Proxy headers are not blindly trusted, public errors are sanitized and baseline security headers are applied.
+- Optional error email sends only redacted/truncated metadata to OpenRouter,
+  suppresses duplicate alerts and falls back safely when AI/SMTP is unavailable.
 
 ## Production deployment checklist
 
@@ -26,6 +28,9 @@
 7. Start MCP and pass health/tool discovery before starting API. Run one Uvicorn worker per service and never use `--reload`.
 8. Run unit and smoke tests after deployment. Existing tokens may require users to log in again after secret/auth changes.
 9. Add retention for expired refresh tokens, old events/sessions and obsolete chart payloads.
+10. If error notification is enabled, use a dedicated SMTP account/App Password,
+    keep SMTP credentials only in the VPS environment and test delivery without
+    including production secrets in the test error.
 
 See `DEPLOY_GCP_FREE_TIER.md` for a resource-conscious GCP setup.
 

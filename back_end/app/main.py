@@ -3,6 +3,7 @@ Main entry point - Khởi tạo FastAPI app, gắn CORS, gắn Routers.
 """
 import logging
 import os
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from app.db.session import (
     readonly_engine,
 )
 from app.models.user import AppUser, Role, UserRole
+from app.services.error_notification_service import error_notification_service
 
 # ============== Logging ==============
 logging.basicConfig(
@@ -69,6 +71,17 @@ async def lifespan(app: FastAPI):
             logger.warning("Recovered %s orphaned agent run(s).", recovered)
     except Exception as e:
         logger.error("Startup error: %s", e)
+        try:
+            await asyncio.wait_for(
+                error_notification_service.notify(
+                    component="api.startup",
+                    error=e,
+                    context={"app_version": __version__},
+                ),
+                timeout=45,
+            )
+        except Exception as notification_error:
+            logger.warning("Startup notification did not complete: %s", notification_error)
         raise
 
     yield
@@ -189,6 +202,15 @@ async def app_exception_handler(request: Request, exc: AppException):
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled exception at %s: %s", request.url, exc)
+    error_notification_service.schedule(
+        component="api.http",
+        error=exc,
+        context={
+            "method": request.method,
+            "path": request.url.path,
+            "user_id": getattr(request.state, "user_id", "anonymous"),
+        },
+    )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={

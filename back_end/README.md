@@ -100,3 +100,38 @@ Architecture and security details:
 
 - [AGENT_HARNESS_ARCHITECTURE.md](AGENT_HARNESS_ARCHITECTURE.md)
 - [BACKEND_HARDENING.md](BACKEND_HARDENING.md)
+
+## AI-assisted error email
+
+Optional operational notifications cover unhandled HTTP 500 errors, startup
+failures and terminal Agent Run failures. Before calling OpenRouter, the service
+removes common credentials, excludes request bodies/headers and truncates the
+context. OpenRouter produces a short Vietnamese `title` and `body`; SMTP sends
+the result. Repeated identical failures are suppressed for a configurable
+interval, and a local fallback summary is used if OpenRouter is unavailable.
+
+Enable it only in the protected deployment `.env`:
+
+```dotenv
+ERROR_NOTIFICATIONS_ENABLED=True
+ERROR_NOTIFICATION_TO=your-alert-address@example.com
+ERROR_NOTIFICATION_ENVIRONMENT=production
+ERROR_NOTIFICATION_MIN_INTERVAL_SECONDS=300
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-sender@example.com
+SMTP_PASSWORD=<provider app password>
+SMTP_FROM_EMAIL=your-sender@example.com
+SMTP_STARTTLS=True
+```
+
+For Gmail, `SMTP_PASSWORD` must be an App Password; do not use or commit the
+normal account password. Alert delivery is best-effort and never changes the
+original API/run result.
+
+After configuring the protected `.env`, send one controlled test from
+`back_end/`:
+
+```bash
+./venv/bin/python3 -m app.services.error_notification_service
+```

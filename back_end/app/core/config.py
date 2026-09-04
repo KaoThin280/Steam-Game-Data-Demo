@@ -70,6 +70,18 @@ class Settings(BaseSettings):
     OPENROUTER_FALLBACK_MODEL: str = "openrouter/owl-alpha"
     LLM_TIMEOUT: float = 120.0  # seconds, OpenRouter request timeout
 
+    # ============== Error notifications ==============
+    ERROR_NOTIFICATIONS_ENABLED: bool = False
+    ERROR_NOTIFICATION_TO: str = ""
+    ERROR_NOTIFICATION_ENVIRONMENT: str = "production"
+    ERROR_NOTIFICATION_MIN_INTERVAL_SECONDS: int = 300
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_STARTTLS: bool = True
+
     # ============== Bounded Agent Harness ==============
     AGENT_MAX_STEPS: int = 8
     AGENT_TOOL_TIMEOUT: float = 12.0
@@ -123,6 +135,15 @@ class Settings(BaseSettings):
             raise ValueError("AGENT_TOOL_TIMEOUT must be between 1 and 60 seconds")
         if not self.DEBUG and len(self.MCP_SHARED_SECRET) < 32:
             raise ValueError("Production MCP_SHARED_SECRET must be random and at least 32 characters")
+        if self.ERROR_NOTIFICATIONS_ENABLED:
+            if not self.ERROR_NOTIFICATION_TO:
+                raise ValueError("ERROR_NOTIFICATION_TO is required when error notifications are enabled")
+            if not self.SMTP_HOST or not self.SMTP_USERNAME or not self.SMTP_PASSWORD:
+                raise ValueError("SMTP_HOST, SMTP_USERNAME and SMTP_PASSWORD are required when error notifications are enabled")
+            if not 1 <= self.SMTP_PORT <= 65535:
+                raise ValueError("SMTP_PORT must be between 1 and 65535")
+            if not 30 <= self.ERROR_NOTIFICATION_MIN_INTERVAL_SECONDS <= 86400:
+                raise ValueError("ERROR_NOTIFICATION_MIN_INTERVAL_SECONDS must be between 30 and 86400")
         return self
 
     model_config = SettingsConfigDict(
