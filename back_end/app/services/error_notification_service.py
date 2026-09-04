@@ -158,33 +158,28 @@ class ErrorNotificationService:
             "message": message,
             "context": context,
         }
-        models = [settings.OPENROUTER_MODEL]
-        if settings.OPENROUTER_FALLBACK_MODEL not in models:
-            models.append(settings.OPENROUTER_FALLBACK_MODEL)
-        for model in models:
-            try:
-                response = await client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": (
-                                "Bạn là trợ lý vận hành backend. Tóm tắt lỗi bằng tiếng Việt, ngắn gọn nhưng hữu ích. "
-                                "Chỉ trả JSON hợp lệ với hai chuỗi: title và body. Body nêu hiện tượng, nguyên nhân có thể "
-                                "và bước kiểm tra tiếp theo. Không bịa dữ kiện, không yêu cầu hoặc lặp lại secret."
-                            ),
-                        },
-                        {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
-                    ],
-                    temperature=0.1,
-                    max_tokens=500,
-                )
-                content = response.choices[0].message.content or ""
-                parsed = _parse_summary(content, fallback)
-                if parsed != fallback or content.strip():
-                    return parsed
-            except Exception as model_error:
-                logger.warning("Error summarizer model %s failed: %s", model, redact_text(model_error, 300))
+        model = settings.OPENROUTER_MODEL
+        try:
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Bạn là trợ lý vận hành backend. Tóm tắt lỗi bằng tiếng Việt, ngắn gọn nhưng hữu ích. "
+                            "Chỉ trả JSON hợp lệ với hai chuỗi: title và body. Body nêu hiện tượng, nguyên nhân có thể "
+                            "và bước kiểm tra tiếp theo. Không bịa dữ kiện, không yêu cầu hoặc lặp lại secret."
+                        ),
+                    },
+                    {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
+                ],
+                temperature=0.1,
+                max_tokens=500,
+            )
+            content = response.choices[0].message.content or ""
+            return _parse_summary(content, fallback)
+        except Exception as model_error:
+            logger.warning("Error summarizer model %s failed: %s", model, redact_text(model_error, 300))
         return fallback
 
     def _send_email(

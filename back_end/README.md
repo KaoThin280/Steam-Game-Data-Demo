@@ -108,7 +108,8 @@ failures and terminal Agent Run failures. Before calling OpenRouter, the service
 removes common credentials, excludes request bodies/headers and truncates the
 context. OpenRouter produces a short Vietnamese `title` and `body`; SMTP sends
 the result. Repeated identical failures are suppressed for a configurable
-interval, and a local fallback summary is used if OpenRouter is unavailable.
+interval. It uses the same `OPENROUTER_MODEL` as the Agent Harness, and a local
+fallback summary is used if that model is unavailable.
 
 Enable it only in the protected deployment `.env`:
 
