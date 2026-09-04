@@ -39,6 +39,10 @@ jobs:
             test -f .env
 
             echo "Checking protected VPS environment settings."
+            # A non-match is normal while probing optional/placeholder values.
+            # Disable errexit only for this block because some SSH wrappers
+            # propagate grep's status even when it is used in a condition.
+            set +e
             if ! grep -Eq '^SECRET_KEY=.{32,}$' .env || grep -Eq '^SECRET_KEY=(change-me-|replace-with-)' .env; then
               generated_secret=$(openssl rand -hex 32)
               if grep -q '^SECRET_KEY=' .env; then
@@ -63,6 +67,7 @@ jobs:
               echo "DATABASE_URL_READONLY is missing from back_end/.env on the VPS."
               exit 1
             fi
+            set -e
 
             echo "Starting internal MCP server on 127.0.0.1:8001."
             fuser -k 8001/tcp || true
