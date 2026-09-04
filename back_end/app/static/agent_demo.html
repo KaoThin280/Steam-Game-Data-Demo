@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Agent Harness Console</title>
+  <style>
+    :root{font-family:Inter,system-ui,sans-serif;color:#e8edf2;background:#0c1117}*{box-sizing:border-box}body{margin:0}.app{display:grid;grid-template-columns:280px 1fr;height:100vh}.side{padding:20px;background:#121923;border-right:1px solid #263241}.main{display:grid;grid-template-rows:auto 1fr auto;min-width:0}.top,.composer{padding:16px 22px;border-bottom:1px solid #263241}.composer{border:0;border-top:1px solid #263241;display:flex;gap:10px}.messages{padding:20px;overflow:auto}.msg{max-width:850px;margin:10px 0;padding:13px 16px;border-radius:12px;white-space:pre-wrap}.user{margin-left:auto;background:#164e63}.assistant{background:#1a2430}.event{font:12px ui-monospace;color:#9fb0c3;padding:3px 8px}.session{padding:10px;border-radius:8px;cursor:pointer;margin:5px 0}.session.active,.session:hover{background:#263241}input,textarea,button{border:1px solid #35465a;border-radius:8px;background:#111923;color:#eef;padding:10px}input,textarea{width:100%}button{cursor:pointer;background:#2563eb;border:0}button.secondary{background:#334155}.login{display:grid;gap:8px}.hidden{display:none}.chart{background:#fff;border-radius:10px;padding:14px;margin:12px 0;height:390px}.chart-note{color:#475569;font-size:12px;margin:4px 0 10px}.chart canvas{width:100%!important;height:320px!important}small{color:#91a4b8}.status{color:#67e8f9}h2{margin-top:0}
+  </style>
+</head>
+<body><div class="app">
+  <aside class="side">
+    <h2>Harness Console</h2>
+    <div id="login" class="login"><input id="email" placeholder="Email"><input id="password" type="password" placeholder="Password"><button onclick="login()">Login</button></div>
+    <div id="sessionPanel" class="hidden"><button onclick="createSession()">+ New session</button><div id="sessions"></div></div>
+  </aside>
+  <main class="main">
+    <div class="top"><strong id="title">Login to begin</strong> <span class="status" id="status"></span></div>
+    <div class="messages" id="messages"></div>
+    <div class="composer"><textarea id="message" rows="2" placeholder="Ask the agent..." disabled></textarea><button id="send" onclick="sendMessage()" disabled>Send</button><button class="secondary" id="cancel" onclick="cancelRun()" disabled>Cancel</button></div>
+  </main>
+</div><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
+<script>
+let token='', currentSession='', currentRun='', source=null;
+const api=async(path,options={})=>{options.headers={...(options.headers||{}),'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})};options.credentials='include';const r=await fetch(path,options);if(!r.ok)throw new Error(`${r.status}: ${await r.text()}`);return r.status===204?null:r.json()};
+const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function add(role,text){const d=document.createElement('div');d.className=`msg ${role}`;d.innerHTML=esc(text);document.querySelector('#messages').appendChild(d);d.scrollIntoView();}
+async function login(){try{const emailEl=document.querySelector('#email'),passwordEl=document.querySelector('#password');const r=await api('/api/v1/auth/login',{method:'POST',body:JSON.stringify({email:emailEl.value,password:passwordEl.value})});token=r.access_token;passwordEl.value='';document.querySelector('#login').classList.add('hidden');document.querySelector('#sessionPanel').classList.remove('hidden');await loadSessions();title.textContent='Create or choose a session';}catch(e){alert(e)}}
+async function loadSessions(){const rows=await api('/api/v1/agent-rpc/sessions');sessions.innerHTML='';rows.forEach(s=>{const d=document.createElement('div');d.className='session'+(s.session_id===currentSession?' active':'');d.textContent=s.title||s.session_id;d.onclick=()=>selectSession(s.session_id);sessions.appendChild(d)})}
+async function createSession(){const name=prompt('Session title','Manual demo');if(name===null)return;const s=await api('/api/v1/agent-rpc/sessions',{method:'POST',body:JSON.stringify({title:name})});await loadSessions();await selectSession(s.session_id)}
+async function selectSession(id){currentSession=id;messages.innerHTML='';const s=await api(`/api/v1/agent-rpc/sessions/${id}`);title.textContent=s.title||id;for(const r of s.runs){add('user',r.input);if(r.output)add('assistant',r.output);if(r.status==='completed'){const events=await api(`/api/v1/agent-rpc/runs/${r.run_id}/events`);for(const e of events){const chart=e.type==='tool.finished'&&e.payload?.result?.content?.chart;if(chart)drawChart(chart)}}}message.disabled=false;send.disabled=false;await loadSessions()}
+async function sendMessage(){if(!currentSession||!message.value.trim())return;const text=message.value.trim();message.value='';add('user',text);const r=await api(`/api/v1/agent-rpc/sessions/${currentSession}/tasks`,{method:'POST',body:JSON.stringify({message:text})});currentRun=r.run_id;send.disabled=true;cancel.disabled=false;status.textContent=' running';stream(r.run_id)}
+function stream(runId){if(source)source.close();source=new EventSource(`/api/v1/agent-rpc/runs/${runId}/stream`,{withCredentials:true});['run.recovered','run.interrupted','run.started','model.requested','model.responded','tool.started','tool.finished','run.completed','run.failed','run.cancelled'].forEach(type=>source.addEventListener(type,e=>handleEvent(type,JSON.parse(e.data))));source.onerror=async()=>{source.close();const r=await api(`/api/v1/agent-rpc/runs/${runId}`);if(r.output)add('assistant',r.output);status.textContent=` ${r.status}`;send.disabled=false;cancel.disabled=true;await loadSessions()}}
+function handleEvent(type,p){const d=document.createElement('div');d.className='event';d.textContent=`${type}${p.name?' · '+p.name:''}`;messages.appendChild(d);if(type==='tool.finished'&&p.result?.content?.chart)drawChart(p.result.content.chart);if(type==='run.completed'&&p.answer)add('assistant',p.answer);if(['run.completed','run.failed','run.cancelled'].includes(type)){source?.close();status.textContent=` ${type.split('.')[1]}`;send.disabled=false;cancel.disabled=true}}
+function drawChart(c){const wrap=document.createElement('div');wrap.className='chart';wrap.innerHTML=`<strong style="color:#111">${esc(c.title)}</strong><div class="chart-note">Hover for values · drag to zoom · mouse wheel to zoom · double-click to reset</div><canvas></canvas>`;messages.appendChild(wrap);const canvas=wrap.querySelector('canvas');if(!window.Chart){wrap.querySelector('.chart-note').textContent='Chart.js could not be loaded.';return}const chart=new Chart(canvas,{type:c.type||'line',data:{labels:c.x||[],datasets:[{label:c.y_label||'Value',data:c.y||[],borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.16)',pointRadius:1,pointHoverRadius:5,borderWidth:2,fill:true,tension:.15}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true},tooltip:{enabled:true},zoom:{pan:{enabled:true,mode:'x'},zoom:{wheel:{enabled:true},pinch:{enabled:true},drag:{enabled:true},mode:'x'}}},scales:{x:{title:{display:true,text:c.x_label||''},ticks:{maxTicksLimit:14}},y:{beginAtZero:true,title:{display:true,text:c.y_label||''}}}}});canvas.ondblclick=()=>chart.resetZoom()}
+async function cancelRun(){if(currentRun)await api(`/api/v1/agent-rpc/runs/${currentRun}/cancel`,{method:'POST'});status.textContent=' cancelled';send.disabled=false;cancel.disabled=true}
+</script></body></html>

@@ -243,3 +243,59 @@ export interface ChatResponse {
   workflow_events: WorkflowEvent[];
   status?: "success" | "error";
 }
+
+// ---------- Durable Agent Harness RPC ----------
+export type AgentRunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+
+export interface AgentSessionSummary {
+  session_id: string;
+  title: string | null;
+  status: "active" | "archived";
+  updated_at: string;
+}
+
+export interface AgentRunSummary {
+  run_id: string;
+  input: string;
+  output: string | null;
+  status: AgentRunStatus;
+  created_at: string;
+}
+
+export interface AgentSessionDetail extends AgentSessionSummary {
+  runs: AgentRunSummary[];
+}
+
+export interface AgentChartPayload {
+  type: string;
+  title: string;
+  x: string[];
+  y: number[];
+  x_label?: string;
+  y_label?: string;
+}
+
+export interface AgentEvent {
+  sequence: number;
+  type: string;
+  payload: {
+    step?: number;
+    name?: string;
+    answer?: string;
+    code?: string;
+    message?: string;
+    result?: { content?: { chart?: AgentChartPayload; truncated?: boolean } };
+  };
+  created_at: string;
+}
+
+export interface AgentRunDetail {
+  run_id: string;
+  session_id: string;
+  status: AgentRunStatus;
+  current_step: number;
+  max_steps: number;
+  output: string | null;
+  error: { code: string; message: string } | null;
+  cancel_requested: boolean;
+}

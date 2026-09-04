@@ -3,13 +3,35 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light;
+  --color-bg: 248 250 252;
+  --color-bg-soft: 241 245 249;
+  --color-panel: 255 255 255;
+  --color-panel-soft: 248 250 252;
+  --color-fg: 15 23 42;
+  --color-muted: 100 116 139;
+  --color-line: 226 232 240;
+  --color-accent: 37 99 235;
+  --color-accent-soft: 29 78 216;
+}
+
+.dark {
   color-scheme: dark;
+  --color-bg: 9 16 29;
+  --color-bg-soft: 15 23 42;
+  --color-panel: 17 28 48;
+  --color-panel-soft: 23 36 59;
+  --color-fg: 241 245 249;
+  --color-muted: 148 163 184;
+  --color-line: 51 65 85;
+  --color-accent: 96 165 250;
+  --color-accent-soft: 59 130 246;
 }
 
 html,
 body {
-  background: #0b1220;
-  color: #e5e7eb;
+  background: rgb(var(--color-bg));
+  color: rgb(var(--color-fg));
   height: 100%;
 }
 
@@ -23,9 +45,9 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(var(--color-muted) / 0.25);
   border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgb(var(--color-muted) / 0.4);
 }

@@ -35,7 +35,7 @@ export function GameDetailPanel({ appid }: { appid: number }) {
         header: "Review",
         accessor: (r) => (
           <div className="max-w-[640px] whitespace-pre-wrap text-sm leading-relaxed">
-            {r.review_text || <span className="text-white/40">(empty)</span>}
+            {r.review_text || <span className="text-muted">(empty)</span>}
           </div>
         ),
       },
@@ -54,8 +54,8 @@ export function GameDetailPanel({ appid }: { appid: number }) {
     []
   );
 
-  if (isLoading) return <div className="p-6 text-white/60">Loading game...</div>;
-  if (!game) return <div className="p-6 text-white/60">Game not found.</div>;
+  if (isLoading) return <div className="p-6 text-muted">Loading game...</div>;
+  if (!game) return <div className="p-6 text-muted">Game not found.</div>;
 
   return (
     <div className="flex flex-col gap-6">
@@ -93,10 +93,10 @@ function GameHeader({ game }: { game: Game }) {
     (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
 
   return (
-    <header className="rounded-md border border-white/5 bg-bg-soft p-4">
+    <header className="rounded-2xl border border-line bg-panel p-5 shadow-sm">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-2xl font-semibold">{game.name}</h1>
-        <div className="text-xs text-white/50">AppID {game.steam_appid}</div>
+        <div className="text-xs text-muted">AppID {game.steam_appid}</div>
       </div>
       <dl className="mt-3 grid grid-cols-1 gap-2 text-sm md:grid-cols-3">
         <Pair label="Released" value={formatDate(game.release_date)} />
@@ -112,8 +112,8 @@ function GameHeader({ game }: { game: Game }) {
 function Pair({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11px] uppercase tracking-wide text-white/50">{label}</dt>
-      <dd className="text-white/90">{value}</dd>
+      <dt className="text-[11px] uppercase tracking-wide text-muted">{label}</dt>
+      <dd className="text-fg">{value}</dd>
     </div>
   );
 }

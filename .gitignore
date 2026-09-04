@@ -98,7 +98,12 @@ debug_chat.py
 test_agentic_chat.py
 test_agentic_chat.py
 logVPS.txt
-/scripts
+!/scripts/
+/scripts/*
+!/scripts/test_agent_local.ps1
+!/scripts/start_local_stack.ps1
+!/scripts/test_backend_unit.ps1
+!/scripts/README.md
 LEARNING_ROADMAP.md
 LEARNING_ROADMAP.docx
 BACKEND_API_DOCUMENTATION.md

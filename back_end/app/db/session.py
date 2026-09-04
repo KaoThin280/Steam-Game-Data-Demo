@@ -11,7 +11,7 @@ Supports both:
 """
 import re
 from typing import AsyncGenerator
-from urllib.parse import quote, urlparse, urlunparse
+from urllib.parse import quote, unquote, urlparse, urlunparse
 
 import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import (
@@ -54,12 +54,13 @@ def _normalize_db_url(raw_url: str) -> str:
     # 3) Encode password.
     parsed = urlparse(url)
     if parsed.password:
-        # quote() with safe="" encodes everything reserved.
-        encoded_pw = quote(parsed.password, safe="")
+        # Decode once before encoding so both raw `p@ss` and URL-encoded
+        # `p%40ss` normalize to exactly one `p%40ss` representation.
+        encoded_pw = quote(unquote(parsed.password), safe="")
         # Re-build netloc with the encoded password.
         userinfo = ""
         if parsed.username:
-            userinfo = quote(parsed.username, safe="")
+            userinfo = quote(unquote(parsed.username), safe="")
         if encoded_pw:
             userinfo = f"{userinfo}:{encoded_pw}" if userinfo else f":{encoded_pw}"
         netloc = parsed.hostname or ""
@@ -102,8 +103,9 @@ _connect_args["statement_cache_size"] = 0
 import ssl as _ssl
 
 _ssl_ctx = _ssl.create_default_context()
-_ssl_ctx.check_hostname = False
-_ssl_ctx.verify_mode = _ssl.CERT_NONE
+if not settings.DB_SSL_VERIFY:
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = _ssl.CERT_NONE
 _connect_args["ssl"] = _ssl_ctx
 
 async_engine = create_async_engine(

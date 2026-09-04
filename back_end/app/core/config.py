@@ -4,7 +4,7 @@ Hỗ trợ cả 2 format Redis (REDIS_URL hoặc REDIS_HOST/PORT/PASSWORD).
 """
 from typing import List, Optional
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Steam Game Data API"
     APP_VERSION: str = "1.1.0"
     DEBUG: bool = False
+    ENABLE_LEGACY_AI: bool = False
     API_V1_PREFIX: str = "/api/v1"
 
     # ============== Server ==============
@@ -24,6 +25,8 @@ class Settings(BaseSettings):
     # ============== Security / JWT ==============
     SECRET_KEY: str = "change-me-to-a-random-secret-key-min-32-chars"
     ALGORITHM: str = "HS256"
+    JWT_ISSUER: str = "steam-game-data-api"
+    JWT_AUDIENCE: str = "steam-game-data-client"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
@@ -34,6 +37,7 @@ class Settings(BaseSettings):
     # Read-only DB user for AI SQL execution (defense-in-depth)
     # If empty, AI queries use the main DATABASE_URL
     DATABASE_URL_READONLY: Optional[str] = None
+    DB_SSL_VERIFY: bool = True
 
     # ============== Redis (Upstash) ==============
     # Hỗ trợ 1 trong 2 format
@@ -57,14 +61,22 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH_PER_MINUTE: int = 20        # Auth endpoints giới hạn chặt
 
     # ============== CORS ==============
-    CORS_ORIGINS: List[str] = ["*"]
+    CORS_ORIGINS: List[str] = []
 
     # ============== OpenRouter AI ==============
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    OPENROUTER_MODEL: str = "deepseek/deepseek-v4-flash"
+    OPENROUTER_MODEL: str = "~deepseek/deepseek-v4-flash-latest"
     OPENROUTER_FALLBACK_MODEL: str = "openrouter/owl-alpha"
     LLM_TIMEOUT: float = 120.0  # seconds, OpenRouter request timeout
+
+    # ============== Bounded Agent Harness ==============
+    AGENT_MAX_STEPS: int = 8
+    AGENT_TOOL_TIMEOUT: float = 12.0
+    AGENT_HISTORY_RUNS: int = 20
+    AGENT_EVENT_MAX_BYTES: int = 65536
+    MCP_SERVER_URL: str = "http://127.0.0.1:8001/mcp"
+    MCP_SHARED_SECRET: str = ""
 
     # ============== E2B Sandbox ==============
     E2B_API_KEY: str = ""
@@ -80,6 +92,38 @@ class Settings(BaseSettings):
     # ============== Bootstrap admin (tạo admin khi chạy lần đầu) ==============
     BOOTSTRAP_ADMIN_EMAIL: str = ""
     BOOTSTRAP_ADMIN_PASSWORD: str = ""
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, value):
+        if isinstance(value, str) and not value.lstrip().startswith("["):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+    @model_validator(mode="after")
+    def _security_invariants(self) -> "Settings":
+        if not self.DEBUG:
+            if self.SECRET_KEY == "change-me-to-a-random-secret-key-min-32-chars" or len(self.SECRET_KEY) < 32:
+                raise ValueError(
+                    "Production SECRET_KEY must be random and at least 32 characters"
+                )
+            if "*" in self.CORS_ORIGINS:
+                raise ValueError("Wildcard CORS is forbidden with credentials")
+        if self.ALGORITHM not in {"HS256", "HS384", "HS512"}:
+            raise ValueError("Unsupported JWT algorithm")
+        if not self.DATABASE_URL_READONLY:
+            raise ValueError(
+                "DATABASE_URL_READONLY is required so AI tools cannot use the application owner connection"
+            )
+        if not self.DEBUG and not self.OPENROUTER_API_KEY:
+            raise ValueError("OPENROUTER_API_KEY is required in production")
+        if not 1 <= self.AGENT_MAX_STEPS <= 30:
+            raise ValueError("AGENT_MAX_STEPS must be between 1 and 30")
+        if not 1 <= self.AGENT_TOOL_TIMEOUT <= 60:
+            raise ValueError("AGENT_TOOL_TIMEOUT must be between 1 and 60 seconds")
+        if not self.DEBUG and len(self.MCP_SHARED_SECRET) < 32:
+            raise ValueError("Production MCP_SHARED_SECRET must be random and at least 32 characters")
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",

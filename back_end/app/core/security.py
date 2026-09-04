@@ -3,6 +3,7 @@ Core Security - Mã hóa password, tạo/giải mã JWT
 """
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, Union
+import uuid
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -35,7 +36,17 @@ def create_access_token(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
-    to_encode = {"exp": expire, "sub": str(subject), "type": "access"}
+    now = datetime.now(timezone.utc)
+    to_encode = {
+        "exp": expire,
+        "iat": now,
+        "nbf": now,
+        "jti": str(uuid.uuid4()),
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+        "sub": str(subject),
+        "type": "access",
+    }
     encoded_jwt = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
@@ -54,7 +65,17 @@ def create_refresh_token(
             days=settings.REFRESH_TOKEN_EXPIRE_DAYS
         )
 
-    to_encode = {"exp": expire, "sub": str(subject), "type": "refresh"}
+    now = datetime.now(timezone.utc)
+    to_encode = {
+        "exp": expire,
+        "iat": now,
+        "nbf": now,
+        "jti": str(uuid.uuid4()),
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+        "sub": str(subject),
+        "type": "refresh",
+    }
     encoded_jwt = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
@@ -68,6 +89,9 @@ def decode_token(token: str) -> dict:
             token,
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
+            issuer=settings.JWT_ISSUER,
+            audience=settings.JWT_AUDIENCE,
+            options={"require_exp": True, "require_sub": True, "require_iat": True},
         )
         return payload
     except JWTError as e:

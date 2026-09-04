@@ -8,12 +8,13 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 
 from app import __version__
-from app.api.v1 import admin, ai_agent, auth, chat, dashboard, data_files, games
+from app.agent_harness.mcp import HTTPMCPGateway
+from app.api.v1 import admin, agent_rpc, ai_agent, auth, chat, dashboard, data_files, games
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.core.rate_limit import rate_limit
@@ -25,6 +26,7 @@ from app.db.session import (
     close_redis,
     init_redis,
     redis_client,
+    readonly_engine,
 )
 from app.models.user import AppUser, Role, UserRole
 
@@ -45,10 +47,26 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("SELECT 1"))
         logger.info("PostgreSQL connected.")
 
+        async with readonly_engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        logger.info("Read-only AI PostgreSQL connection verified.")
+
+        tools = await HTTPMCPGateway(
+            settings.MCP_SERVER_URL,
+            settings.MCP_SHARED_SECRET,
+            settings.AGENT_TOOL_TIMEOUT,
+        ).list_tools()
+        if not tools:
+            raise RuntimeError("Independent MCP server returned no tools")
+        logger.info("Independent MCP server connected (%s tools).", len(tools))
+
         await init_redis()
         logger.info("Redis connected.")
 
         await _bootstrap_admin()
+        recovered = await agent_rpc.recover_orphaned_runs()
+        if recovered:
+            logger.warning("Recovered %s orphaned agent run(s).", recovered)
     except Exception as e:
         logger.error("Startup error: %s", e)
         raise
@@ -56,6 +74,7 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Shutting down...")
+    await agent_rpc.interrupt_live_runs_for_shutdown()
     await close_redis()
     await close_db()
     logger.info("Connections closed.")
@@ -144,6 +163,12 @@ async def auth_context_middleware(request: Request, call_next):
             pass
 
     response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if not settings.DEBUG:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 
@@ -156,7 +181,7 @@ async def app_exception_handler(request: Request, exc: AppException):
             "success": False,
             "code": getattr(exc, "code", "ERROR"),
             "message": exc.detail,
-            "path": str(request.url),
+            "path": request.url.path,
         },
     )
 
@@ -170,7 +195,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
             "success": False,
             "code": "INTERNAL_ERROR",
             "message": "Lỗi máy chủ nội bộ.",
-            "path": str(request.url),
+            "path": request.url.path,
         },
     )
 
@@ -181,10 +206,14 @@ API_V1 = settings.API_V1_PREFIX
 app.include_router(auth.router, prefix=API_V1)
 app.include_router(games.router, prefix=API_V1)
 app.include_router(dashboard.router, prefix=API_V1)
-app.include_router(ai_agent.router, prefix=API_V1)
-app.include_router(chat.router, prefix=API_V1)
+app.include_router(agent_rpc.router, prefix=API_V1)
 app.include_router(admin.router, prefix=API_V1)
-app.include_router(data_files.router, prefix=API_V1)
+if settings.ENABLE_LEGACY_AI:
+    # Legacy E2B/chat/artifact routes use process-global state and are not
+    # suitable for multi-user production deployments. Opt in only while migrating.
+    app.include_router(ai_agent.router, prefix=API_V1)
+    app.include_router(chat.router, prefix=API_V1)
+    app.include_router(data_files.router, prefix=API_V1)
 
 # ============== Static files (temp_data for E2B-generated artifacts) ==============
 # NOTE: StaticFiles mount removed for security. Files are now served via
@@ -215,13 +244,15 @@ async def health():
             await conn.execute(text("SELECT 1"))
         db_status = "connected"
     except Exception as e:
-        db_status = f"error: {e}"
+        logger.warning("Database health check failed: %s", e)
+        db_status = "unavailable"
 
     try:
         await redis_client.ping()
         redis_status = "connected"
     except Exception as e:
-        redis_status = f"error: {e}"
+        logger.warning("Redis health check failed: %s", e)
+        redis_status = "unavailable"
 
     healthy = db_status == "connected" and redis_status == "connected"
 
@@ -238,3 +269,9 @@ async def ping(request: Request):
     """Endpoint test rate limit."""
     await rate_limit(request, bucket="ping")
     return {"pong": True}
+
+
+@app.get("/agent-demo", include_in_schema=False)
+async def agent_demo():
+    """Standalone local/manual harness UI; all data APIs remain authenticated."""
+    return FileResponse(Path(__file__).parent / "static" / "agent_demo.html")

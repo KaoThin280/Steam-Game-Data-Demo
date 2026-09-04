@@ -43,19 +43,19 @@ export function PlotlyChartRenderer({
 
   return (
     <div
-      className={`rounded-lg border border-white/10 bg-bg/50 overflow-hidden transition-all duration-300 ${
+      className={`rounded-xl border border-line bg-panel overflow-hidden transition-all duration-300 ${
         expanded ? "fixed inset-4 z-50" : ""
       } ${className}`}
     >
       {/* Header bar */}
-      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-white/5 border-b border-white/5">
-        <div className="flex items-center gap-2 text-xs text-white/70 truncate">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-bg-soft border-b border-line">
+        <div className="flex items-center gap-2 text-xs text-muted truncate">
           <span className="font-medium truncate">{title ?? "Interactive chart"}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="p-1 rounded hover:bg-white/10 text-white/50 hover:text-white/80 transition-colors"
+            className="p-1 rounded hover:bg-panel text-muted hover:text-fg transition-colors"
             title={expanded ? "Minimize" : "Expand"}
           >
             {expanded ? (
@@ -69,7 +69,7 @@ export function PlotlyChartRenderer({
 
       {/* Loading overlay */}
       {loading && (
-        <div className="flex items-center justify-center py-12 text-white/40 gap-2">
+        <div className="flex items-center justify-center py-12 text-muted gap-2">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span className="text-sm">Loading chart...</span>
         </div>
@@ -85,7 +85,7 @@ export function PlotlyChartRenderer({
         <Plot
           data={data}
           layout={{ ...layout, autosize: true }}
-          config={{ responsive: true, displaylogo: false }}
+          config={{ responsive: true, displaylogo: false, scrollZoom: true, displayModeBar: true }}
           style={{ width: "100%", height: "100%" }}
           onInitialized={() => setLoading(false)}
           useResizeHandler

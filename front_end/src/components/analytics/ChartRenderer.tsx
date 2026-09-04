@@ -29,6 +29,7 @@ import {
 import { Chart } from "react-chartjs-2";
 
 import type { AiChartSpec } from "@/lib/types";
+import { useTheme } from "@/components/layout/ThemeProvider";
 
 ChartJS.register(
   ArcElement,
@@ -69,56 +70,70 @@ interface ChartRendererProps {
  */
 export function ChartRenderer({ spec, height = 320 }: ChartRendererProps) {
   const chartRef = useRef<ChartJS | null>(null);
+  const { theme } = useTheme();
 
   const ctype = (spec.chart_type || "bar").toLowerCase();
   const resolvedType: ChartType = ctype === "area" ? "line" : (ctype as ChartType);
 
   // Merge AI-provided config with defaults — AI colors/options take precedence
-  const data: ChartData = useMemo(
-    () => ({
+  const data: ChartData = useMemo(() => {
+    const palette = ["#2563eb", "#0891b2", "#7c3aed", "#db2777", "#ea580c", "#16a34a", "#ca8a04", "#4f46e5", "#0f766e", "#dc2626"];
+    const circular = ["pie", "doughnut", "polarArea"].includes(resolvedType);
+    return ({
       labels: spec.config.labels,
-      datasets: spec.config.datasets.map((d) => ({
+      datasets: spec.config.datasets.map((d, index) => ({
         ...d,
         fill: ctype === "area" ? true : d.fill,
+        borderColor: d.borderColor ?? (circular ? "#ffffff" : palette[index % palette.length]),
+        backgroundColor: d.backgroundColor ?? (circular ? palette : `${palette[index % palette.length]}cc`),
+        pointBackgroundColor: d.pointBackgroundColor ?? palette[index % palette.length],
+        pointRadius: d.pointRadius ?? (resolvedType === "line" ? 2 : undefined),
+        borderWidth: d.borderWidth ?? 2,
       })),
-    }),
-    [spec.config, ctype]
-  );
+    });
+  }, [spec.config, ctype, resolvedType]);
 
   // Use AI-provided options if present, otherwise fall back to defaults
   const options: ChartOptions = useMemo(() => {
     const aiOptions = spec.config.options || {};
     const isLinear = resolvedType === "bar" || resolvedType === "line"
       || resolvedType === "scatter";
+    const foreground = theme === "dark" ? "#e2e8f0" : "#334155";
+    const muted = theme === "dark" ? "#94a3b8" : "#64748b";
+    const grid = theme === "dark" ? "rgba(148,163,184,.14)" : "rgba(100,116,139,.16)";
     return {
       responsive: true,
       maintainAspectRatio: false,
       ...aiOptions,
       plugins: {
-        legend: { display: true, position: "bottom" as const },
+        legend: { display: true, position: "bottom" as const, labels: { color: foreground, usePointStyle: true, padding: 18 } },
         title: { display: false },
+        tooltip: { enabled: true, backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", titleColor: foreground, bodyColor: foreground, borderColor: theme === "dark" ? "#334155" : "#e2e8f0", borderWidth: 1 },
         ...(aiOptions.plugins || {}),
       },
       scales: isLinear
         ? {
             x: {
+              grid: { color: grid },
               title: spec.x_axis_label
                 ? { display: true, text: spec.x_axis_label }
                 : undefined,
-              ticks: { autoSkip: true, maxRotation: 45, minRotation: 0 },
+              ticks: { autoSkip: true, maxRotation: 45, minRotation: 0, color: muted },
               ...((aiOptions.scales as Record<string, unknown>)?.["x"] as Record<string, unknown> || {}),
             },
             y: {
+              grid: { color: grid },
               title: spec.y_axis_label
                 ? { display: true, text: spec.y_axis_label }
                 : undefined,
               beginAtZero: true,
+              ticks: { color: muted },
               ...((aiOptions.scales as Record<string, unknown>)?.["y"] as Record<string, unknown> || {}),
             },
           }
         : aiOptions.scales || undefined,
     };
-  }, [resolvedType, spec.x_axis_label, spec.y_axis_label, spec.config.options]);
+  }, [resolvedType, spec.x_axis_label, spec.y_axis_label, spec.config.options, theme]);
 
   const cfg: ChartConfiguration = {
     type: resolvedType,
@@ -126,13 +141,20 @@ export function ChartRenderer({ spec, height = 320 }: ChartRendererProps) {
     options,
   };
 
-  useEffect(() => () => chartRef.current?.destroy(), []);
+  useEffect(() => {
+    return () => {
+      const chart = chartRef.current;
+      if (chart && typeof chart.destroy === "function") {
+        chart.destroy();
+      }
+    };
+  }, []);
 
   return (
     <div style={{ height }} className="w-full">
       <Chart ref={chartRef} {...cfg} />
       {spec.notes && (
-        <p className="mt-2 text-xs text-white/60">{spec.notes}</p>
+        <p className="mt-2 text-xs text-muted">{spec.notes}</p>
       )}
     </div>
   );

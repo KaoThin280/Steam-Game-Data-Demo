@@ -111,6 +111,11 @@ export const apiPost = async <T, B = unknown>(url: string, body?: B, timeout?: n
   return r.data;
 };
 
+export const apiPatch = async <T, B = unknown>(url: string, body?: B): Promise<T> => {
+  const r = await api.patch<T>(url, body);
+  return r.data;
+};
+
 export const apiDelete = async <T>(url: string): Promise<T> => {
   const r = await api.delete<T>(url);
   return r.data;

@@ -88,7 +88,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="mx-auto mt-16 max-w-md rounded-md border border-white/10 bg-bg-soft p-6">
+    <div className="mx-auto mt-16 max-w-md rounded-2xl border border-line bg-panel p-7 shadow-lg shadow-slate-900/5">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">
           {mode === "login" ? "Sign in" : "Create account"}
@@ -106,7 +106,7 @@ export default function LoginPage() {
       </div>
 
       {error && (
-        <div className="mb-3 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+        <div className="mb-3 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-700 dark:text-rose-200">
           {error}
         </div>
       )}
@@ -170,7 +170,7 @@ export default function LoginPage() {
 }
 
 const inputCls =
-  "w-full rounded-md border border-white/10 bg-bg px-3 py-2 text-sm focus:border-accent focus:outline-none";
+  "w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10";
 
 function Field({
   label,
@@ -183,7 +183,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-[11px] uppercase tracking-wide text-white/50">{label}</span>
+      <span className="text-[11px] uppercase tracking-wide text-muted">{label}</span>
       <div className="mt-1">{children}</div>
       {error && (
         <span className={classNames("mt-1 block text-[11px] text-rose-300")}>

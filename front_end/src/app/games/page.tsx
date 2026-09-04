@@ -21,7 +21,7 @@ function GamesView() {
       <header className="flex items-baseline justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Games</h1>
-          <p className="text-sm text-white/60">
+          <p className="text-sm text-muted">
             {isViewer
               ? "Browse the Steam game catalogue."
               : "Browse and search games. Click a row to see details and reviews."}

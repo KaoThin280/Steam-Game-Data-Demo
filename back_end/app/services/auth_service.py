@@ -4,9 +4,10 @@ Aligned with SCHEMA_DOCUMENTATION.md (public.app_users + RBAC tables).
 """
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
+import hashlib
 
 from jose import JWTError
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -44,6 +45,11 @@ class AuthService:
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+
+    @staticmethod
+    def _token_digest(token: str) -> str:
+        """Store only a one-way refresh-token digest after it leaves the API."""
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
     # ============ Helpers ============
     async def _load_user(self, user_id: int) -> Optional[AppUser]:
@@ -128,7 +134,7 @@ class AuthService:
         self.db.add(
             RefreshToken(
                 user_id=user.id,
-                token=refresh_token,
+                token=self._token_digest(refresh_token),
                 expires_at=expires_at,
                 is_revoked=False,
                 created_at=datetime.now(timezone.utc),
@@ -160,7 +166,7 @@ class AuthService:
 
         result = await self.db.execute(
             select(RefreshToken).where(
-                RefreshToken.token == refresh_token,
+                RefreshToken.token == self._token_digest(refresh_token),
                 RefreshToken.is_revoked == False,  # noqa: E712
             )
         )
@@ -176,10 +182,24 @@ class AuthService:
         if not user or not user.is_active:
             raise UnauthorizedException()
 
+        # One-time rotation limits replay if a refresh token is stolen.
+        db_token.is_revoked = True
         new_access = create_access_token(subject=str(user.id))
+        new_refresh = create_refresh_token(subject=str(user.id))
+        self.db.add(
+            RefreshToken(
+                user_id=user.id,
+                token=self._token_digest(new_refresh),
+                expires_at=datetime.now(timezone.utc)
+                + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+                is_revoked=False,
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        await self.db.commit()
         return TokenResponse(
             access_token=new_access,
-            refresh_token=refresh_token,
+            refresh_token=new_refresh,
             token_type="bearer",
             expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         )
@@ -188,7 +208,9 @@ class AuthService:
     async def logout(self, refresh_token: str) -> None:
         """Revoke refresh token."""
         result = await self.db.execute(
-            select(RefreshToken).where(RefreshToken.token == refresh_token)
+            select(RefreshToken).where(
+                RefreshToken.token == self._token_digest(refresh_token)
+            )
         )
         db_token = result.scalar_one_or_none()
         if db_token:
@@ -243,6 +265,11 @@ class AuthService:
         if not verify_password(old_password, user.password_hash):
             raise InvalidCredentialsException(detail="Mật khẩu cũ không chính xác.")
         user.password_hash = get_password_hash(new_password)
+        await self.db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id == user.id, RefreshToken.is_revoked == False)  # noqa: E712
+            .values(is_revoked=True)
+        )
         await self.db.commit()
 
     # ============ Admin: role/permission management ============

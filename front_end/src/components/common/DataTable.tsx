@@ -37,13 +37,13 @@ export function DataTable<T>({
   isLoading = false,
 }: DataTableProps<T>) {
   return (
-    <div className="overflow-hidden rounded-md border border-white/5">
+    <div className="overflow-hidden border border-line">
       <div className="relative overflow-x-auto">
         {isLoading && (
           <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 animate-pulse bg-accent/60" />
         )}
         <table className="w-full text-sm">
-          <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-white/60">
+          <thead className="bg-bg-soft text-left text-xs uppercase tracking-wide text-muted">
             <tr>
               {columns.map((c) => {
                 const k = String(c.key);
@@ -65,7 +65,7 @@ export function DataTable<T>({
                             active && sortDir === "asc" ? "desc" : "asc";
                           onSortChange(c.sortKey ?? k, nextDir);
                         }}
-                        className="inline-flex items-center gap-1 hover:text-white"
+                        className="inline-flex items-center gap-1 hover:text-fg"
                       >
                         {c.header}
                         {active ? (
@@ -89,7 +89,7 @@ export function DataTable<T>({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="px-3 py-8 text-center text-white/50">
+                <td colSpan={columns.length} className="px-3 py-8 text-center text-muted">
                   {isLoading ? "Loading..." : emptyText}
                 </td>
               </tr>
@@ -99,8 +99,8 @@ export function DataTable<T>({
                 key={rowKey(r)}
                 onClick={onRowClick ? () => onRowClick(r) : undefined}
                 className={classNames(
-                  "border-t border-white/5",
-                  onRowClick && "cursor-pointer hover:bg-white/5"
+                  "border-t border-line",
+                  onRowClick && "cursor-pointer hover:bg-bg-soft"
                 )}
               >
                 {columns.map((c) => {

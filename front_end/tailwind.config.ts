@@ -7,17 +7,20 @@ const config: Config = {
     extend: {
       colors: {
         bg: {
-          DEFAULT: "#0b1220",
-          soft: "#0f172a",
+          DEFAULT: "rgb(var(--color-bg) / <alpha-value>)",
+          soft: "rgb(var(--color-bg-soft) / <alpha-value>)",
         },
         panel: {
-          DEFAULT: "#111827",
-          soft: "#1f2937",
+          DEFAULT: "rgb(var(--color-panel) / <alpha-value>)",
+          soft: "rgb(var(--color-panel-soft) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "#3b82f6",
-          soft: "#1d4ed8",
+          DEFAULT: "rgb(var(--color-accent) / <alpha-value>)",
+          soft: "rgb(var(--color-accent-soft) / <alpha-value>)",
         },
+        fg: "rgb(var(--color-fg) / <alpha-value>)",
+        muted: "rgb(var(--color-muted) / <alpha-value>)",
+        line: "rgb(var(--color-line) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["ui-sans-serif", "system-ui", "Segoe UI", "Roboto", "sans-serif"],

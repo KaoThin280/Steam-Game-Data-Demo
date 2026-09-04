@@ -9,11 +9,11 @@ talks to the back-end VPS only through the public REST API.
 | --- | --- | --- |
 | Framework | **Next.js 14+ (App Router)** | SSR + first-class Vercel support |
 | Language | **TypeScript** (strict) | Type-safe contracts that mirror the BE schema |
-| Styling | **Tailwind CSS** + custom dark palette | Fast to iterate, tiny CSS payload |
+| Styling | **Tailwind CSS** + semantic CSS variables | Light-first themes with an optional dark class |
 | State (auth + status) | **Zustand** | Tiny, no boilerplate |
 | Data fetching | **SWR** | Cache + revalidate, plays well with axios |
 | HTTP | **Axios** | Interceptors for auth header + server-status events |
-| Charts | **Chart.js + react-chartjs-2** | Renders the AI `charting` tool output as-is |
+| Charts | **Chart.js + react-chartjs-2**, **Plotly.js** | Theme-aware dashboard charts and interactive Agent Harness charts |
 | Icons | **lucide-react** | Lightweight, tree-shakeable |
 | Forms | **react-hook-form + zod** | Type-safe validation |
 
@@ -25,13 +25,13 @@ front_end/
     app/                       # Next.js App Router
       layout.tsx               # Root layout (Header + Sidebar + status boot)
       page.tsx                 # Entry: redirect to /login or /dashboard or /games
-      globals.css              # Tailwind + scrollbar + dark palette
+      globals.css              # Light/dark semantic colour tokens
       login/page.tsx           # Login + register (zod-validated forms)
       games/
         page.tsx               # Games list (filter/sort/search + pagination)
         [appid]/page.tsx       # Game detail + reviews (filter/sort/search)
-      dashboard/page.tsx       # Analyst/scientist: 2 tabs + chat panel
-      chat/page.tsx            # Standalone chat with both modes side-by-side
+      dashboard/page.tsx       # Full-width analytics dashboard (no chat)
+      chat/page.tsx            # Durable Agent Harness workspace
       admin/page.tsx           # Admin-only: users + roles (gated)
     components/
       layout/
@@ -44,21 +44,22 @@ front_end/
         Pagination.tsx         # Prev/Next + total + last-page
         SearchInput.tsx        # Search-icon input
       analytics/
-        ChartRenderer.tsx      # Chart.js wrapper for AI charting tool output
+        ChartRenderer.tsx      # Chart.js wrapper for dashboard chart output
         StatsCards.tsx         # Top-row KPI cards
       games/
         GameListTable.tsx      # Filterable/sortable games table
         GameDetailPanel.tsx    # Header + reviews list (filterable)
       chat/
-        ChatWindow.tsx         # Mode toggle (SQL+Chart | Python E2B) + bubbles
-        ChatMessage.tsx        # Single bubble with chart rendering
+        AgentChatWorkspace.tsx # Sessions, runs, tool events, cancel and charts
+      Renderers/
+        PlotlyChartRenderer.tsx # Interactive Agent Harness chart payloads
       auth/
         RoleGuard.tsx          # Client-side role gate
     hooks/
       useAuth.ts               # login / register / logout / me / hasRole
       useGames.ts              # SWR-backed games + reviews list/detail
       useDashboard.ts          # SWR-backed /dashboard/* endpoints
-      useChat.ts               # Chat hook supporting both /ai/chat and /chat
+      useAgentHarness.ts       # /agent-rpc durable conversation workflow
       useServerStatus.ts       # Periodic ping + axios interceptor listener
       useFilters.ts            # Generic filter state container
     lib/
@@ -87,9 +88,9 @@ The app distinguishes four roles (matching `back_end/app/models/user.py`):
 | Role | Default page | What they see |
 | --- | --- | --- |
 | `viewer` | `/games` | Games list + game detail with reviews |
-| `analyst` | `/dashboard` | Dashboard with 2 tabs (Games / Steam Users) + chat panel |
-| `scientist` | `/dashboard` | Same as analyst (analyst chat + dashboard) |
-| `admin` | `/dashboard` | Dashboard + chat + `/admin` users/roles management |
+| `analyst` | `/dashboard` | Analytics dashboard and durable AI Agent workspace |
+| `scientist` | `/dashboard` | Analytics dashboard and durable AI Agent workspace |
+| `admin` | `/dashboard` | Dashboard, AI Agent and `/admin` management |
 
 `src/components/auth/RoleGuard.tsx` is a client-side gate that wraps protected
 pages. The back-end still enforces RBAC via JWT + role checks; the FE guard is
@@ -102,8 +103,7 @@ shows what the back-end is doing. The states come from two sources:
 
 1. **Axios request/response interceptors** (`src/lib/api.ts`) emit
    `fetching / connected / error` for every HTTP call.
-2. The chat hook (`src/hooks/useChat.ts`) emits `generating / executing_e2b`
-   when the AI is mid-stream.
+2. Agent RPC polling exposes queued/running/completed status in the chat UI.
 3. A periodic ping (`src/hooks/useServerStatus.ts`) refreshes
    `connected / error` every 30 s.
 
@@ -127,15 +127,10 @@ idle | connecting | connected | fetching | generating
 
 ## Chat
 
-`src/components/chat/ChatWindow.tsx` supports two modes:
-
-| Mode | Endpoint | Tools used | When to use |
-| --- | --- | --- | --- |
-| **SQL + Chart** | `POST /ai/chat` | `execute_query` + `charting` | Fast read-only answers and Chart.js charts |
-| **Python (E2B)** | `POST /chat` | `query_table` + `E2B_EXE` | pandas/matplotlib, file generation in `temp_data/` |
-
-The `/dashboard` page embeds a single chat panel (default `agent` mode). The
-`/chat` page embeds both modes side-by-side for power users.
+The UI has one workflow only: `/agent-rpc`. It creates, renames and deletes
+durable sessions, sends multiple tasks per session, polls run/events, exposes
+cancellation and renders persisted MCP chart payloads with Plotly hover, zoom,
+pan and export controls. The dashboard intentionally contains no chat panel.
 
 ## Talking to the back-end
 
@@ -150,6 +145,18 @@ store, and refreshes it once on a `401` via `/auth/refresh`.
 
 ## Local development
 
+Start the complete stack from the repository root:
+
+```powershell
+.\scripts\start_local_stack.ps1
+```
+
+This is the recommended path because the API on `8000` requires the internal
+MCP tool server on `8001`. The browser communicates only with `8000`; it never
+needs the MCP shared secret.
+
+To start only Next.js against backend services that are already running:
+
 ```bash
 cd front_end
 npm install
@@ -157,7 +164,8 @@ cp .env.local.example .env.local       # then point to your BE URL
 npm run dev                            # http://localhost:3000
 ```
 
-Make sure the back-end is running on port 8000 (see `../back_end/README.md`).
+Make sure MCP is running on port `8001` and the product API is running on port
+`8000` (see `../back_end/README.md`).
 
 ## Deploying to Vercel
 
@@ -171,12 +179,8 @@ Make sure the back-end is running on port 8000 (see `../back_end/README.md`).
 
 Subsequent pushes to `main` automatically trigger a new Vercel deployment.
 
-## What is intentionally minimal in this skeleton
+## Current boundaries
 
-- The Steam Users dashboard tab currently reuses `/dashboard/languages` as a
-  preview. The dedicated `/dashboard/users` endpoint can be plugged in later
-  without touching the page structure.
-- The admin page lists users only; role assignment UI is a TODO on top of
-  `POST /admin/users/{user_id}/roles`.
-- The chat uses REST (not SSE). The `/ai/chat/stream` and `/chat/stream`
-  endpoints are already wired in the BE and can replace `useChat.send` later.
+- The admin page lists users only; role assignment UI remains separate.
+- Agent events are incrementally polled so Bearer authentication works across
+  Vercel/backend origins. The backend SSE endpoint remains available.

@@ -8,7 +8,6 @@ import {
   Home,
   MessageSquare,
   ShieldCheck,
-  Users,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -27,7 +26,6 @@ const NAV: NavItem[] = [
   { href: "/games",       label: "Games",       icon: Gamepad2,     roles: ["viewer", "analyst", "scientist", "admin"] },
   { href: "/dashboard",   label: "Dashboard",   icon: BarChart3,    roles: ["analyst", "scientist", "admin"] },
   { href: "/chat",        label: "AI Chat",     icon: MessageSquare, roles: ["analyst", "scientist", "admin"] },
-  { href: "/users",       label: "Steam Users", icon: Users,        roles: ["analyst", "scientist", "admin"] },
   { href: "/admin",       label: "Admin",       icon: ShieldCheck,  roles: ["admin"] },
 ];
 
@@ -38,13 +36,13 @@ export function Sidebar() {
   const showChat = canUseAnalystChat(roles);
 
   return (
-    <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-56 shrink-0 border-r border-white/5 bg-bg-soft p-3 lg:block">
+    <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 border-r border-line bg-panel p-4 lg:block">
       <nav className="flex flex-col gap-1 text-sm">
         <Link
           href="/"
           className={classNames(
-            "flex items-center gap-2 rounded-md px-3 py-2 hover:bg-white/5",
-            pathname === "/" && "bg-white/5"
+            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-muted transition hover:bg-bg-soft hover:text-fg",
+            pathname === "/" && "bg-accent/10 text-accent"
           )}
         >
           <Home className="h-4 w-4" />
@@ -61,8 +59,8 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={classNames(
-                "flex items-center gap-2 rounded-md px-3 py-2 hover:bg-white/5",
-                active && "bg-white/10 text-white"
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-muted transition hover:bg-bg-soft hover:text-fg",
+                active && "bg-accent/10 font-medium text-accent"
               )}
             >
               <Icon className="h-4 w-4" />

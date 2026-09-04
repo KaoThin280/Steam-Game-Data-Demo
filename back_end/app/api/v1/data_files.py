@@ -17,7 +17,7 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.params import Path as FastAPIPath
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.api.dependencies import get_current_active_user
 from app.core.config import settings
@@ -28,7 +28,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Data Files"])
 
 TEMP_DIR = Path(settings.TEMP_DATA_DIR)
-ALLOWED_EXTENSIONS = {".html", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".csv", ".json", ".txt", ".md"}
+ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".csv", ".json", ".txt", ".md"}
+MAX_FILE_BYTES = 10 * 1024 * 1024
+MAX_CSV_ROWS = 5_000
 
 
 def _validate_path(filename: str) -> Path:
@@ -90,10 +92,11 @@ async def list_data_files(
 )
 async def get_data_file(
     filename: str = FastAPIPath(..., description="Filename in temp_data/"),
+    _current_user: AppUser = Depends(get_current_active_user),
 ):
     """
     Serve a file from temp_data. HTML files are served inline for iframe rendering.
-    Public endpoint — no auth required so PlotlyHtmlRenderer iframes work.
+    Authentication is mandatory; generated artifacts may contain user data.
     """
     full_path = _validate_path(filename)
 
@@ -104,26 +107,16 @@ async def get_data_file(
         )
 
     ext = full_path.suffix.lower()
-
-    # HTML → serve inline (for Plotly iframe)
-    if ext == ".html":
-        try:
-            html_content = full_path.read_text(encoding="utf-8")
-            return HTMLResponse(content=html_content, status_code=200)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to read HTML: {exc}",
-            )
+    if ext not in ALLOWED_EXTENSIONS or full_path.stat().st_size > MAX_FILE_BYTES:
+        raise HTTPException(status_code=413, detail="Artifact type or size is not allowed.")
 
     # PNG/JPEG/GIF → serve with inline disposition for <img> tags
-    if ext in (".png", ".jpg", ".jpeg", ".gif", ".svg"):
+    if ext in (".png", ".jpg", ".jpeg", ".gif"):
         media_type = {
             ".png": "image/png",
             ".jpg": "image/jpeg",
             ".jpeg": "image/jpeg",
             ".gif": "image/gif",
-            ".svg": "image/svg+xml",
         }.get(ext, "application/octet-stream")
         return FileResponse(
             path=str(full_path),
@@ -177,7 +170,9 @@ async def get_table_data(
     try:
         import pandas as pd
 
-        df = pd.read_csv(full_path)
+        if full_path.stat().st_size > MAX_FILE_BYTES:
+            raise HTTPException(status_code=413, detail="CSV is too large.")
+        df = pd.read_csv(full_path, nrows=MAX_CSV_ROWS)
         columns = {col: {"dtype": str(df[col].dtype), "business_meaning": f"Column: {col}"} for col in df.columns}
         # Convert to records format, handling NaN/NaT
         data = json.loads(df.to_json(orient="records", date_format="iso", default_handler=str))
@@ -186,6 +181,7 @@ async def get_table_data(
             "columns": columns,
             "data": data,
             "num_rows": len(data),
+            "truncated": len(data) == MAX_CSV_ROWS,
             "file_name": filename,
         })
     except ImportError:

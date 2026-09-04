@@ -43,9 +43,8 @@ def _client_identifier(request: Request) -> str:
         return f"user:{user_id}"
     # Fallback IP
     if request.client:
-        forwarded = request.headers.get("x-forwarded-for")
-        if forwarded:
-            return f"ip:{forwarded.split(',')[0].strip()}"
+        # Uvicorn/ASGI must normalize proxy headers from explicitly trusted
+        # proxies. Never trust a client-supplied X-Forwarded-For here.
         return f"ip:{request.client.host}"
     return "ip:unknown"
 

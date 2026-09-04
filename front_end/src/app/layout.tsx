@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ServerStatusBoot } from "@/components/layout/ServerStatusBoot";
 import { SWRConfig } from "swr";
+import { ThemeProvider } from "@/components/layout/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "Steam Game Data Demo",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b1220",
+  themeColor: "#f8fafc",
   width: "device-width",
   initialScale: 1,
 };
@@ -24,8 +25,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-bg text-white antialiased">
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-bg text-fg antialiased">
+        <ThemeProvider>
         <SWRConfig
           value={{
             revalidateOnFocus: false,
@@ -40,6 +42,7 @@ export default function RootLayout({
           <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
         </div>
         </SWRConfig>
+        </ThemeProvider>
       </body>
     </html>
   );

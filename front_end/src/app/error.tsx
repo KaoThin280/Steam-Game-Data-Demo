@@ -46,7 +46,7 @@ export default function Error({
           </button>
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-white/10 text-white/70 text-sm font-medium hover:bg-white/5 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-line text-muted text-sm font-medium hover:bg-bg-soft hover:text-fg transition-colors"
           >
             <Home className="h-4 w-4" />
             Về Dashboard

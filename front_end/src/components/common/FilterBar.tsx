@@ -44,13 +44,13 @@ export function FilterBar<T extends Record<string, unknown>>({
   className,
 }: FilterBarProps<T>) {
   return (
-    <div className={`flex flex-wrap items-end gap-3 rounded-md border border-white/5 bg-bg-soft p-3 ${className ?? ""}`}>
+    <div className={`flex flex-wrap items-end gap-3 rounded-xl border border-line bg-panel p-3 ${className ?? ""}`}>
       {fields.map((f) => {
         const v = filters[f.key];
         const set = (next: unknown) => onChange(f.key as keyof T, next as T[keyof T]);
         return (
           <div key={f.key} className="flex min-w-[160px] flex-col gap-1">
-            <label className="text-[11px] uppercase tracking-wide text-white/50">{f.label}</label>
+            <label className="text-[11px] uppercase tracking-wide text-muted">{f.label}</label>
             {f.type === "search" && (
               <SearchInput
                 value={String(v ?? "")}
@@ -64,7 +64,7 @@ export function FilterBar<T extends Record<string, unknown>>({
                 value={String(v ?? "")}
                 onChange={(e) => set(e.target.value)}
                 placeholder={f.placeholder}
-                className="rounded-md border border-white/10 bg-bg-soft px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
+                className="rounded-md border border-line bg-bg-soft px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
               />
             )}
             {f.type === "number" && (
@@ -73,14 +73,14 @@ export function FilterBar<T extends Record<string, unknown>>({
                 value={v === undefined || v === null ? "" : String(v)}
                 onChange={(e) => set(e.target.value === "" ? undefined : Number(e.target.value))}
                 placeholder={f.placeholder}
-                className="rounded-md border border-white/10 bg-bg-soft px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
+                className="rounded-md border border-line bg-bg-soft px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
               />
             )}
             {f.type === "select" && (
               <select
                 value={String(v ?? "")}
                 onChange={(e) => set(e.target.value || undefined)}
-                className="rounded-md border border-white/10 bg-bg-soft px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
+                className="rounded-md border border-line bg-bg-soft px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
               >
                 <option value="">Any</option>
                 {(f.options ?? []).map((o) => (
@@ -95,7 +95,7 @@ export function FilterBar<T extends Record<string, unknown>>({
                   if (e.target.value === "") set(undefined);
                   else set(e.target.value === "true");
                 }}
-                className="rounded-md border border-white/10 bg-bg-soft px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
+                className="rounded-md border border-line bg-bg-soft px-2 py-1.5 text-sm focus:border-accent focus:outline-none"
               >
                 <option value="">Any</option>
                 <option value="true">Yes</option>
@@ -108,7 +108,7 @@ export function FilterBar<T extends Record<string, unknown>>({
       <button
         type="button"
         onClick={onReset}
-        className="ml-auto inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1.5 text-xs text-white/70 hover:bg-white/5"
+        className="ml-auto inline-flex items-center gap-1 rounded-md border border-line px-2 py-1.5 text-xs text-muted hover:bg-bg-soft hover:text-fg"
       >
         <RotateCcw className="h-3.5 w-3.5" />
         Reset

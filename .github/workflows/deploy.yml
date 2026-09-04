@@ -2,44 +2,78 @@ name: Deploy Backend to GCP VPS
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'back_end/**'
+      - "back_end/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: production-backend
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-    - name: Deploy via SSH
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.VPS_IP }}
-        username: thinhthinhhay2002
-        key: ${{ secrets.VPS_SSH_KEY }}
-        script: |
-          # 1. Di chuyển vào thư mục dự án
-          cd ~/my-project
-          
-          # 2. Đồng bộ cứng mã nguồn với GitHub (Tránh kẹt tiến trình)
-          git fetch origin main
-          git reset --hard origin/main
-          
-          # 3. Đi vào thư mục back_end
-          cd back_end
-          
-          # 4. Khởi tạo/Cập nhật môi trường ảo venv và cài đặt thư viện
-          python3 -m venv venv || true
-          source venv/bin/activate
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          
-          # 5. Giải phóng cổng mạng 8000
-          fuser -k 8000/tcp || true
-          sleep 2
-          
-          # 6. Khởi chạy ngầm Uvicorn bằng Python chuẩn bên trong venv
-          nohup ./venv/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
-          sleep 8
-          
-          echo "=== KIỂM TRA TRẠNG THÁI KHỞI ĐỘNG ==="
-          tail -n 15 uvicorn.log
+      - name: Deploy API and MCP via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: thinhthinhhay2002
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -eu
+            cd ~/my-project
+            git fetch origin main
+            git reset --hard origin/main
+
+            cd back_end
+            python3 -m venv venv
+            ./venv/bin/python3 -m pip install --upgrade pip
+            ./venv/bin/python3 -m pip install -r requirements.txt
+
+            # The protected VPS .env must define matching production settings,
+            # including MCP_SHARED_SECRET and DATABASE_URL_READONLY.
+            test -f .env
+
+            fuser -k 8001/tcp || true
+
+            nohup ./venv/bin/python3 -m uvicorn app.mcp_server:app \
+              --host 127.0.0.1 --port 8001 --workers 1 \
+              > mcp-server.log 2>&1 &
+
+            mcp_ready=0
+            for attempt in $(seq 1 20); do
+              if curl --fail --silent http://127.0.0.1:8001/health >/dev/null; then
+                mcp_ready=1
+                break
+              fi
+              sleep 2
+            done
+            if [ "$mcp_ready" -ne 1 ]; then
+              tail -n 50 mcp-server.log
+              exit 1
+            fi
+
+            # Keep the old public API serving until the new MCP process is ready.
+            fuser -k 8000/tcp || true
+            nohup ./venv/bin/python3 -m uvicorn app.main:app \
+              --host 0.0.0.0 --port 8000 --workers 1 \
+              > uvicorn.log 2>&1 &
+
+            api_ready=0
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent http://127.0.0.1:8000/health >/dev/null; then
+                api_ready=1
+                break
+              fi
+              sleep 2
+            done
+            if [ "$api_ready" -ne 1 ]; then
+              tail -n 80 uvicorn.log
+              exit 1
+            fi
+
+            echo "MCP and API deployment completed successfully."

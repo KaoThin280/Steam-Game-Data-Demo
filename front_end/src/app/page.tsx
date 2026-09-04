@@ -41,7 +41,7 @@ export default function HomePage() {
   }, [hydrated, isAuthenticated, user, router]);
 
   return (
-    <div className="grid h-[60vh] place-items-center text-sm text-white/60">
+    <div className="grid h-[60vh] place-items-center text-sm text-muted">
       Loading...
     </div>
   );

@@ -18,7 +18,6 @@ from app.db.session import get_db
 from app.models.user import AppUser
 from app.schemas.token_schema import (
     AccessTokenResponse,
-    RefreshTokenRequest,
     TokenResponse,
 )
 from app.schemas.user_schema import (
@@ -47,10 +46,9 @@ def _me_to_out(user: AppUser) -> UserMe:
 
 
 def _build_token_payload(tokens: TokenResponse) -> dict:
-    """Return JSON body with token info (for clients that still want it)."""
+    """Return access token only; refresh credentials stay in httpOnly cookies."""
     return {
         "access_token": tokens.access_token,
-        "refresh_token": tokens.refresh_token,
         "token_type": tokens.token_type,
         "expires_in": tokens.expires_in,
     }
@@ -80,17 +78,16 @@ async def register(
 
 @router.post(
     "/login",
-    summary="Đăng nhập (set httpOnly cookies + trả body cho client)",
+    summary="Đăng nhập (refresh token chỉ nằm trong httpOnly cookie)",
 )
 async def login(
     request: Request,
-    response: Response,
     payload: UserLogin,
     auth_service: AuthService = Depends(get_auth_service),
 ):
     """
-    Đăng nhập. Tokens được set dưới dạng httpOnly cookies (XSS-resistant)
-    và cũng trả về trong JSON body để client có thể lưu vào memory.
+    Access token is returned for API clients. The refresh token is only stored
+    in an httpOnly cookie and is never exposed to JavaScript.
     """
     await rate_limit(
         request,
@@ -99,6 +96,7 @@ async def login(
         bucket="auth-login",
     )
     tokens = await auth_service.login(payload)
+    response = JSONResponse(content=_build_token_payload(tokens))
     set_auth_cookies(
         response,
         tokens.access_token,
@@ -106,7 +104,8 @@ async def login(
         access_expires_seconds=tokens.expires_in,
         refresh_expires_seconds=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
     )
-    return _build_token_payload(tokens)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @router.post(
@@ -117,7 +116,7 @@ async def login(
 async def refresh_token(
     request: Request,
     response: Response,
-    payload: RefreshTokenRequest,
+    token: str = Depends(verify_refresh_token),
     auth_service: AuthService = Depends(get_auth_service),
 ):
     """
@@ -129,8 +128,15 @@ async def refresh_token(
         window=60,
         bucket="auth-refresh",
     )
-    result = await auth_service.refresh_access_token(payload.refresh_token)
-    set_access_cookie(response, result.access_token, result.expires_in)
+    result = await auth_service.refresh_access_token(token)
+    set_auth_cookies(
+        response,
+        result.access_token,
+        result.refresh_token,
+        access_expires_seconds=result.expires_in,
+        refresh_expires_seconds=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+    )
+    response.headers["Cache-Control"] = "no-store"
     return AccessTokenResponse(
         access_token=result.access_token,
         token_type=result.token_type,
