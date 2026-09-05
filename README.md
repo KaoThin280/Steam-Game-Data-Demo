@@ -1,133 +1,70 @@
-# Steam Game Data Demo
+# Steam Game Data Demo — AI Agent Harness
 
-A multi-user web platform that lets visitors explore metadata and reviews of ~10,000 Steam games and ~169,000 user reviews, with interactive dashboards and an AI assistant that can run read-only SQL queries and render charts on the fly. Application-level users authenticate with username/email + password and are assigned roles (admin / analyst / scientist / viewer) with fine-grained permissions.
+A deployed Steam analytics platform and bounded AI agent harness built for the
+Celesnity 2026 AI Track assessment.
+
+## Assessment submission
+
+The main deliverable is:
+
+- [AI Agent Track Submission](AI_AGENT_TRACK_SUBMISSION.md) — architecture,
+  requirement mapping, design decisions, trade-offs, failure semantics,
+  verification, demo plan and production roadmap.
+
+Supporting technical documents:
+
+- [Backend and local setup](back_end/README.md)
+- [Agent Harness architecture](back_end/AGENT_HARNESS_ARCHITECTURE.md)
+- [Security and hardening](back_end/BACKEND_HARDENING.md)
+- [GCP Free Tier deployment](back_end/DEPLOY_GCP_FREE_TIER.md)
+- [Local test scripts](scripts/README.md)
+
+## Current architecture
+
+| Component | Responsibility |
+| --- | --- |
+| Next.js frontend | Authentication UI, dashboard, durable chat sessions, event progress and interactive Plotly charts |
+| FastAPI product API (`:8000`) | JWT/RBAC, Steam REST APIs, session/run lifecycle, OpenRouter agent loop, status/events/SSE/cancellation |
+| MCP-compatible tool server (`:8001`) | Approved read-only data tools, E2B Python analysis, chart generation/cache and failure-injection tools |
+| Supabase PostgreSQL | Steam data plus durable agent sessions, runs, events and saved charts |
+| Upstash Redis | Rate limiting and product cache |
+| OpenRouter | Real LLM provider behind the project-owned `ModelProvider` interface |
+| E2B | Isolation boundary for model-written Python |
+
+Only port `8000` is public. The API calls the independently running tool server
+on loopback with a shared service secret.
 
 ## Repository layout
 
-```
-Steam-Game-Data-Demo/
-├── back_end/                  # FastAPI service (deploy to a VPS / Cloud Run)
-│   ├── app/
-│   │   ├── api/v1/            # auth, games, reviews, dashboard, AI agent, admin
-│   │   ├── core/              # config, security, rate-limit, exceptions, log_config
-│   │   ├── db/                # async session + SQLAlchemy base (read-only engine)
-│   │   ├── models/            # games, reviews, users (Steam + app_users), RBAC tables
-│   │   ├── schemas/           # Pydantic request/response models
-│   │   ├── services/          # auth, steam, AI agent (Charting + ExecuteQuery tools)
-│   │   └── utils/             # auth_cookies, signed_urls
-│   ├── alembic/               # Database migrations
-│   ├── db_extra_tables.sql    # Tables NOT yet created on Supabase -> run once
-│   ├── db_init_supabase.sql   # Full reference schema (only if you need to rebuild)
-│   ├── db_readonly_user.sql   # Read-only DB role for AI SQL execution (defense-in-depth)
-│   ├── Dockerfile             # Optional container image
-│   ├── requirements.txt
-│   ├── alembic.ini
-│   ├── .env.example
-│   └── README.md              # Backend-specific setup
-│
-├── db_admin/                  # Optional Flask admin panel (run locally only)
-│   ├── app.py
-│   ├── config.py
-│   ├── templates/
-│   └── README.md
-│
-├── front_end/                 # Next.js 14 (App Router) deployed to Vercel
-│   ├── src/
-│   │   ├── app/               # routes, error.tsx, global-error.tsx, not-found.tsx, loading.tsx
-│   │   ├── components/        # UI components + renderers
-│   │   ├── hooks/             # useAuth, useDashboard, ...
-│   │   ├── lib/               # api.ts (axios + httpOnly cookies), auth.ts, types.ts
-│   │   ├── store/             # Zustand stores (auth, serverStatus)
-│   │   ├── middleware.ts      # Security headers + auth redirect
-│   │   └── utils/             # permissions.ts, format.ts
-│   ├── .env.local.example
-│   ├── next.config.mjs
-│   ├── tailwind.config.ts
-│   ├── vercel.json
-│   └── README.md
-│
-├── deploy/
-│   ├── nginx/steam-api.conf   # Production nginx config (SSL + security headers)
-│   ├── steam-sync.service     # systemd unit for data sync
-│   ├── steam-sync.timer       # systemd timer
-│   └── vps_sync.sh            # Manual sync script
-│
-├── .github/workflows/ci.yml   # CI pipeline (backend tests + frontend lint/build)
-├── SCHEMA_DOCUMENTATION.md    # Database schema reference
-├── Instruction.md             # Project brief (Vietnamese)
-├── DEPLOY.md                  # Deployment guide (with / without Docker)
-└── .gitignore
+```text
+back_end/
+  app/agent_harness/       transport-neutral types, loop, provider, gateway, store
+  app/api/v1/agent_rpc.py  authenticated REST/SSE session and run transport
+  app/mcp_server.py        independently runnable MCP-compatible HTTP service
+  tests/                   unit tests for loop, tools, persistence contracts and security
+front_end/                 Next.js dashboard and Agent Harness chat workspace
+scripts/                   local stack, unit and end-to-end smoke-test entrypoints
+.github/workflows/         CI and two-service VPS deployment
 ```
 
-## Stack
+## Run locally on Windows
 
-| Layer | Technology |
-|---|---|
-| Back-end | Python 3.11+, FastAPI, SQLAlchemy 2 (async), asyncpg, Redis, OpenAI SDK (OpenRouter), JWT auth + httpOnly cookies, RBAC |
-| Database | PostgreSQL on Supabase (free tier, public schema) + read-only role for AI |
-| Cache / Rate-limit | Redis on Upstash (free tier) |
-| AI | OpenRouter API (free models), tool-calling agent (Charting + ExecuteQuery) |
-| Migrations | Alembic |
-| Admin panel | Flask + SQLAlchemy (run locally, NOT on the VPS) |
-| Front-end | Next.js 14 (App Router) + TypeScript + Tailwind, httpOnly cookie auth |
-| Reverse proxy | nginx (SSL termination, rate-limit, security headers) |
-| Deploy | Back-end on GCP Cloud Run / VPS, front-end on Vercel (both free tier) |
-| CI/CD | GitHub Actions |
+Configure the gitignored `back_end/.env`, then run from the repository root:
 
-## Security features
-
-- **httpOnly cookies** for JWT (XSS-resistant)
-- **HMAC signed URLs** for sandbox-generated files
-- **Read-only DB role** for AI SQL execution (defense-in-depth)
-- **Rate limiting** (per-IP, per-bucket) for all endpoints
-- **Security headers** in FastAPI middleware + nginx + Next.js
-- **CORS** allowlist (not `*`) in production
-- **Path traversal** protection for file serving
-- **Prepared statement cache disabled** to avoid issues through pgbouncer
-- **CORS-aware middleware** that normalises DATABASE_URL passwords
-- **session-level isolation** (main engine for writes, readonly engine for AI)
-
-## Roles & permissions
-
-| Role | Capabilities |
-|---|---|
-| `admin` | Full access: read / write / delete games, reviews, users + manage roles |
-| `scientist` | Read + write games and reviews (no delete, no user management) |
-| `analyst` | Read-only across games, reviews, users |
-| `viewer` | Read-only on games and reviews |
-
-Default permissions: `games_read`, `games_write`, `games_delete`, `reviews_read`, `reviews_write`, `reviews_delete`, `users_read`, `users_write`, `users_delete`, `users_manage_roles`, `system_admin`.
-
-## Quick start
-
-Read **[DEPLOY.md](DEPLOY.md)** for the full step-by-step guide (with and without Docker).
-
-In short:
-1. Create a Supabase project, run `back_end/db_extra_tables.sql` once.
-2. (Recommended) Run `back_end/db_readonly_user.sql` to create the `steam_readonly` role.
-3. (Recommended) Run `back_end/alembic upgrade head` instead of running raw SQL.
-4. Create an Upstash Redis database, copy the connection URL.
-5. Get an OpenRouter API key.
-6. Configure `back_end/.env` (copy from `.env.example`).
-7. Deploy `back_end/` to a VPS (GCP free tier) or Cloud Run — see DEPLOY.md.
-8. (Optional) `db_admin/` is a local-only Flask panel for direct DB inspection.
-9. Configure `front_end/.env.local` and deploy to Vercel.
-
-## Testing
-
-```bash
-# Backend
-cd back_end
-pip install -r requirements.txt
-pytest
-
-# Frontend
-cd front_end
-npm ci
-npm run lint
-npm run build
+```powershell
+.\scripts\start_local_stack.ps1
 ```
 
-## License
+This starts MCP on `8001`, the product API on `8000`, and Next.js on `3000`.
 
-Internal demo project. Not published under an open-source license.
+Tests:
+
+```powershell
+.\scripts\test_backend_unit.ps1
+.\scripts\test_agent_local.ps1
+.\scripts\test_agent_local.ps1 -ConversationSuite
+```
+
+Database migrations are intentionally supplied as SQL files for manual review
+and execution in Supabase. Secrets, `.env` files and runtime logs are not stored
+in the repository.
