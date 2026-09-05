@@ -1,9 +1,9 @@
 # Celesnity AI Track Submission — Agent Harness
 
-**Candidate project:** Steam Game Data Demo  
-**Chosen track:** AI — Agent Harness  
-**Repository:** [github.com/KaoThin280/Steam-Game-Data-Demo](https://github.com/KaoThin280/Steam-Game-Data-Demo)  
-**Live web application:** [steam-game-data-demo.vercel.app](https://steam-game-data-demo.vercel.app)  
+**Candidate project:** Steam Game Data Demo<br>
+**Chosen track:** AI — Agent Harness<br>
+**Repository:** [github.com/KaoThin280/Steam-Game-Data-Demo](https://github.com/KaoThin280/Steam-Game-Data-Demo)<br>
+**Live web application:** [steam-game-data-demo.vercel.app](https://steam-game-data-demo.vercel.app)<br>
 **Primary implementation:** [`back_end/app/agent_harness`](back_end/app/agent_harness), [`agent_rpc.py`](back_end/app/api/v1/agent_rpc.py), and [`mcp_server.py`](back_end/app/mcp_server.py)
 
 ## Executive summary
