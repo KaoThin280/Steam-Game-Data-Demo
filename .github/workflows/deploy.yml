@@ -1,114 +1,62 @@
-name: Deploy Backend to GCP VPS
+name: Build tested Docker release (manual VPS rollout)
 
+# Publishing code cannot restart the VPS. Rollout is performed by the operator.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "back_end/**"
-      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
-  group: production-backend
-  cancel-in-progress: true
+  group: docker-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  release:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      IMAGE: steam-backend:${{ github.sha }}
     steps:
-      - name: Deploy API and MCP via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          host: ${{ secrets.VPS_IP }}
-          username: thinhthinhhay2002
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script_stop: true
-          script: |
-            set -eu
-            cd ~/my-project
-            git fetch origin main
-            git reset --hard origin/main
-
-            cd back_end
-            python3 -m venv venv
-            ./venv/bin/python3 -m pip install --upgrade pip
-            ./venv/bin/python3 -m pip install -r requirements.txt
-
-            # The protected VPS .env must define matching production settings,
-            # including MCP_SHARED_SECRET and DATABASE_URL_READONLY.
-            test -f .env
-
-            echo "Checking protected VPS environment settings."
-            # A non-match is normal while probing optional/placeholder values.
-            # Disable errexit only for this block because some SSH wrappers
-            # propagate grep's status even when it is used in a condition.
-            set +e
-            if ! grep -Eq '^SECRET_KEY=.{32,}$' .env || grep -Eq '^SECRET_KEY=(change-me-|replace-with-)' .env; then
-              generated_secret=$(openssl rand -hex 32)
-              if grep -q '^SECRET_KEY=' .env; then
-                sed -i "s|^SECRET_KEY=.*|SECRET_KEY=${generated_secret}|" .env
-              else
-                printf '\nSECRET_KEY=%s\n' "$generated_secret" >> .env
-              fi
-              echo "Generated missing/placeholder SECRET_KEY in the protected VPS .env."
-            fi
-
-            if ! grep -Eq '^MCP_SHARED_SECRET=.{32,}$' .env || grep -Eq '^MCP_SHARED_SECRET=(change-me-|replace-with-)' .env; then
-              generated_mcp_secret=$(openssl rand -hex 32)
-              if grep -q '^MCP_SHARED_SECRET=' .env; then
-                sed -i "s|^MCP_SHARED_SECRET=.*|MCP_SHARED_SECRET=${generated_mcp_secret}|" .env
-              else
-                printf '\nMCP_SHARED_SECRET=%s\n' "$generated_mcp_secret" >> .env
-              fi
-              echo "Generated missing/placeholder MCP_SHARED_SECRET in the protected VPS .env."
-            fi
-
-            if ! grep -Eq '^DATABASE_URL_READONLY=.+$' .env; then
-              echo "DATABASE_URL_READONLY is missing from back_end/.env on the VPS."
-              exit 1
-            fi
-            set -e
-
-            echo "Starting internal MCP server on 127.0.0.1:8001."
-            fuser -k 8001/tcp || true
-
-            nohup ./venv/bin/python3 -m uvicorn app.mcp_server:app \
-              --host 127.0.0.1 --port 8001 --workers 1 \
-              > mcp-server.log 2>&1 &
-
-            mcp_ready=0
-            for attempt in $(seq 1 20); do
-              if curl --fail --silent http://127.0.0.1:8001/health >/dev/null; then
-                mcp_ready=1
-                break
-              fi
-              sleep 2
-            done
-            if [ "$mcp_ready" -ne 1 ]; then
-              echo "MCP health check failed; showing mcp-server.log."
-              tail -n 50 mcp-server.log
-              exit 1
-            fi
-
-            # Keep the old public API serving until the new MCP process is ready.
-            echo "MCP is healthy; restarting public API on port 8000."
-            fuser -k 8000/tcp || true
-            nohup ./venv/bin/python3 -m uvicorn app.main:app \
-              --host 0.0.0.0 --port 8000 --workers 1 \
-              > uvicorn.log 2>&1 &
-
-            api_ready=0
-            for attempt in $(seq 1 30); do
-              if curl --fail --silent http://127.0.0.1:8000/health >/dev/null; then
-                api_ready=1
-                break
-              fi
-              sleep 2
-            done
-            if [ "$api_ready" -ne 1 ]; then
-              echo "API health check failed; showing uvicorn.log."
-              tail -n 80 uvicorn.log
-              exit 1
-            fi
-
-            echo "MCP and API deployment completed successfully."
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            back_end/requirements.txt
+            back_end/requirements-test.txt
+      - name: Unit and regression tests (no production credentials)
+        working-directory: back_end
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          DATABASE_URL_READONLY: postgresql://test:test@localhost:5432/test
+          REDIS_URL: rediss://localhost:6379/0
+          DEBUG: "true"
+          ERROR_NOTIFICATIONS_ENABLED: "false"
+          OPENROUTER_API_KEY: ""
+          E2B_API_KEY: ""
+        run: |
+          python -m pip install -r requirements-test.txt
+          python -m pytest -q tests
+      - name: Build Linux amd64 runtime
+        run: docker build --platform linux/amd64 -t "$IMAGE" ./back_end
+      - name: Check non-root runtime without network
+        run: |
+          docker run --rm --network none --memory 384m --memory-swap 384m --cpus 0.12 "$IMAGE" python -c 'import os, fastapi, uvicorn, sqlalchemy, asyncpg; assert os.getuid() == 1000; print("IMPORT OK")'
+      - name: Package release (no environment secrets)
+        run: |
+          mkdir release
+          docker save "$IMAGE" | gzip > release/backend-image.tar.gz
+          cp back_end/compose.production.yml release/
+          cp back_end/.env.production.example release/production.env.example
+          printf '%s\n' "$IMAGE" > release/image-tag.txt
+          cp docs/operations/docker-vps-migration.md release/README.md
+          cd release
+          sha256sum backend-image.tar.gz compose.production.yml production.env.example image-tag.txt > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: steam-backend-${{ github.sha }}
+          path: release/
+          retention-days: 7
+          if-no-files-found: error

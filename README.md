@@ -1,70 +1,55 @@
-# Steam Game Data Demo — AI Agent Harness
+# Steam Game Data Demo
 
-A deployed Steam analytics platform and bounded AI agent harness built for the
-Celesnity 2026 AI Track assessment.
+Ứng dụng web giúp người dùng khám phá metadata và đánh giá game Steam, xem dashboard thống kê và đặt câu hỏi phân tích dữ liệu bằng ngôn ngữ tự nhiên. Dự án kết hợp một hệ thống web có đăng nhập, phân quyền với AI Agent có thể truy vấn dữ liệu, tạo biểu đồ và chạy phân tích Python trong sandbox.
 
-## Assessment submission
+## Chức năng chính
 
-The main deliverable is:
+- **Khám phá game:** tìm kiếm, lọc, sắp xếp, phân trang và xem đánh giá của từng game.
+- **Dashboard:** tổng quan dữ liệu, game có nhiều review, phân bố thể loại, năm phát hành và ngôn ngữ hỗ trợ.
+- **Trợ lý phân tích:** hội thoại nhiều lượt, tạo và mở lại phiên chat, theo dõi tiến trình, hủy tác vụ, xem biểu đồ được lưu.
+- **Quản lý tài khoản:** đăng ký, đăng nhập, hồ sơ và bốn vai trò `viewer`, `analyst`, `scientist`, `admin`. Backend có API quản lý tài khoản và vai trò; giao diện admin hiện chủ yếu hiển thị danh sách người dùng.
+- **Công cụ quản trị dữ liệu riêng:** `db_admin/` là ứng dụng Flask chạy nội bộ, kết nối trực tiếp PostgreSQL/Redis; khác với trang admin của website.
 
-- [AI Agent Track Submission](AI_AGENT_TRACK_SUBMISSION.md) — architecture,
-  requirement mapping, design decisions, trade-offs, failure semantics,
-  verification, demo plan and production roadmap.
+## Tổng quan hệ thống
 
-Supporting technical documents:
-
-- [Backend and local setup](back_end/README.md)
-- [Agent Harness architecture](back_end/AGENT_HARNESS_ARCHITECTURE.md)
-- [Security and hardening](back_end/BACKEND_HARDENING.md)
-- [GCP Free Tier deployment](back_end/DEPLOY_GCP_FREE_TIER.md)
-- [Local test scripts](scripts/README.md)
-
-## Current architecture
-
-| Component | Responsibility |
-| --- | --- |
-| Next.js frontend | Authentication UI, dashboard, durable chat sessions, event progress and interactive Plotly charts |
-| FastAPI product API (`:8000`) | JWT/RBAC, Steam REST APIs, session/run lifecycle, OpenRouter agent loop, status/events/SSE/cancellation |
-| MCP-compatible tool server (`:8001`) | Approved read-only data tools, E2B Python analysis, chart generation/cache and failure-injection tools |
-| Supabase PostgreSQL | Steam data plus durable agent sessions, runs, events and saved charts |
-| Upstash Redis | Rate limiting and product cache |
-| OpenRouter | Real LLM provider behind the project-owned `ModelProvider` interface |
-| E2B | Isolation boundary for model-written Python |
-
-Only port `8000` is public. The API calls the independently running tool server
-on loopback with a shared service secret.
-
-## Repository layout
-
-```text
-back_end/
-  app/agent_harness/       transport-neutral types, loop, provider, gateway, store
-  app/api/v1/agent_rpc.py  authenticated REST/SSE session and run transport
-  app/mcp_server.py        independently runnable MCP-compatible HTTP service
-  tests/                   unit tests for loop, tools, persistence contracts and security
-front_end/                 Next.js dashboard and Agent Harness chat workspace
-scripts/                   local stack, unit and end-to-end smoke-test entrypoints
-.github/workflows/         CI and two-service VPS deployment
+```mermaid
+flowchart LR
+    User[Người dùng] --> Web[Next.js web]
+    Web --> API[FastAPI product API]
+    API --> DB[(PostgreSQL)]
+    API --> Redis[(Redis rate limit)]
+    API --> LLM[OpenRouter]
+    API --> Tools[Tool server nội bộ]
+    Tools --> DB
+    Tools --> E2B[E2B Python sandbox]
 ```
 
-## Run locally on Windows
+Frontend dùng Next.js, TypeScript, Tailwind, Chart.js và Plotly. Backend dùng FastAPI và SQLAlchemy async. PostgreSQL lưu dữ liệu Steam, tài khoản, phiên chat, tác vụ và sự kiện. Redis phục vụ giới hạn tần suất request. OpenRouter cung cấp model; E2B thực thi Python do agent tạo trong môi trường riêng.
 
-Configure the gitignored `back_end/.env`, then run from the repository root:
+Product API mặc định chạy ở cổng `8000`; tool server ở `8001` và cần giữ trong mạng nội bộ. Hướng triển khai trong repository là frontend trên Vercel, backend trên VPS GCP, PostgreSQL trên Supabase và Redis trên Upstash. Đây là mô tả cấu hình và mã nguồn, không phải xác nhận các dịch vụ đang hoạt động trực tuyến.
 
-```powershell
-.\scripts\start_local_stack.ps1
-```
+## Phạm vi hiện tại
 
-This starts MCP on `8001`, the product API on `8000`, and Next.js on `3000`.
+Luồng chat hiện tại là **Agent Harness** qua `/api/v1/agent-rpc`: lưu phiên và tác vụ trong PostgreSQL, gọi model và tool theo vòng lặp có giới hạn. Các route chat cũ được giữ để tương thích và mặc định tắt. Tool server triển khai tập con JSON-RPC `tools/list` và `tools/call`; chưa có đầy đủ vòng đời MCP để khẳng định tương thích mọi MCP client.
 
-Tests:
+Dữ liệu là tập dữ liệu đã nạp vào database, không phải nguồn Steam được cập nhật trực tiếp theo thời gian thực. Số game/review phải lấy từ database đang sử dụng. Bộ lập lịch agent hiện hướng tới một API worker; khả năng chịu tải và chi phí cần được đo trên môi trường triển khai.
 
-```powershell
-.\scripts\test_backend_unit.ps1
-.\scripts\test_agent_local.ps1
-.\scripts\test_agent_local.ps1 -ConversationSuite
-```
+## Cấu trúc repository
 
-Database migrations are intentionally supplied as SQL files for manual review
-and execution in Supabase. Secrets, `.env` files and runtime logs are not stored
-in the repository.
+| Thư mục | Nội dung |
+|---|---|
+| `back_end/` | Product API, Agent Harness, tool server, model dữ liệu, SQL và unit tests |
+| `front_end/` | Giao diện web và client gọi API |
+| `db_admin/` | Công cụ quản trị PostgreSQL/Redis nội bộ |
+| `scripts/` | Khởi động local và kiểm thử trên Windows |
+| `deploy/` | Cấu hình Nginx và script đồng bộ VPS cũ |
+| `.github/workflows/` | Workflow kiểm thử và triển khai backend |
+| `docs/` | Tài liệu theo chủ đề và hướng dẫn đọc |
+
+## Bắt đầu
+
+1. Đọc [cài đặt local](docs/guides/local-development.md), đặc biệt điều kiện schema database.
+2. Chuẩn bị môi trường backend/frontend và cấu hình dịch vụ.
+3. Từ thư mục gốc chạy `./scripts/start_local_stack.ps1` trên PowerShell.
+
+Xem [mục lục tài liệu](docs/README.md) để tìm kiến trúc, API, schema, vận hành, kiểm thử và lộ trình học. [Bài nộp Agent Harness](docs/assessment/agent-track-submission.md) là tài liệu dành riêng cho đánh giá kỹ thuật.

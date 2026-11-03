@@ -6,6 +6,20 @@
 .env.*.local
 **/.env
 **/.env.local
+.env.*
+!.env.example
+!.env.docker.example
+!.env.production.example
+!.env.local.example
+
+# Local credentials and private keys (public CA .crt files stay versioned).
+*.key
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+credentials.local.json
 
 # ============== Python ==============
 __pycache__/
@@ -49,6 +63,20 @@ coverage.xml
 *.log
 logs/
 **/*.log
+/back_end/test_logs/
+/scripts/output/
+
+# Downloaded/exported Docker releases and local operation reports.
+/release/
+/releases/
+/steam-release/
+/steam-backend-*.zip
+/backend-image.tar
+/backend-image.tar.gz
+/back_end/backend-image.tar
+/back_end/backend-image.tar.gz
+/test-results/
+/playwright-report/
 
 # ============== IDE & OS ==============
 .vscode/
@@ -103,6 +131,7 @@ logVPS.txt
 !/scripts/test_agent_local.ps1
 !/scripts/start_local_stack.ps1
 !/scripts/test_backend_unit.ps1
+!/scripts/test_e2e.py
 !/scripts/README.md
 LEARNING_ROADMAP.md
 LEARNING_ROADMAP.docx
@@ -114,3 +143,13 @@ back_end/test_chat_workflow.py
 BACKEND_RAG_INTEGRATION_ANALYSIS.md
 CHATBOT_INSTRUCTIONS.md
 /back_end/temp_data
+
+# Documentation redirects are maintained alongside docs/.
+!/LEARNING_ROADMAP.md
+!/BACKEND_API_DOCUMENTATION.md
+!/BACKEND_RAG_INTEGRATION_ANALYSIS.md
+!/CHATBOT_INSTRUCTIONS.md
+!/scripts/EVALUATION.md
+!/scripts/backend_docker.ps1
+Instruction4Agent.md
+Instruction4Agent.md

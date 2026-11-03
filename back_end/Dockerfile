@@ -12,8 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements và cài dependencies vào folder riêng
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --user -r requirements.txt
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 
 # ============== Stage 2: Runtime ==============
@@ -28,8 +29,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python packages từ builder
-COPY --from=builder /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH \
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
@@ -39,6 +40,10 @@ COPY . .
 
 # Tạo user non-root để bảo mật
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+
+COPY certs/supabase-ca.crt /usr/local/share/ca-certificates/supabase-ca.crt
+RUN update-ca-certificates
+
 USER appuser
 
 # Expose port
@@ -46,7 +51,7 @@ EXPOSE 8000
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD python -m app.healthcheck http://127.0.0.1:8000/health
 
 # Run với uvicorn
 # The free-tier deployment uses an in-process live-task registry. One worker is

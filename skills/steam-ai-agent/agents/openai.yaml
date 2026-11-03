@@ -1,0 +1,4 @@
+interface:
+  display_name: "Steam AI Agent"
+  short_description: "Develop the Steam agent harness and RAG workflow"
+  default_prompt: "Use $steam-ai-agent to implement the requested Steam Agent Harness change and verify its tool and run contracts."

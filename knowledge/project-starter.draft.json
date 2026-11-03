@@ -1,0 +1,90 @@
+[
+  {
+    "_id": "project-overview-v1",
+    "title": "Steam Game Data Demo dùng để làm gì?",
+    "text": "Steam Game Data Demo là website giúp khám phá dữ liệu game và đánh giá Steam đã được nạp vào hệ thống. Người dùng có thể tìm game, đọc reviews, xem dashboard và đặt câu hỏi phân tích cho trợ lý AI. Trợ lý có thể dùng công cụ truy vấn dữ liệu và tạo biểu đồ. Dữ liệu của dự án không mặc nhiên đại diện cho toàn bộ Steam và không được coi là cập nhật trực tiếp theo thời gian thực.",
+    "category": "project_guide",
+    "language": "vi",
+    "source": "README.md",
+    "version": "1",
+    "reviewed_at": "2026-11-01",
+    "status": "draft"
+  },
+  {
+    "_id": "project-game-search-v1",
+    "title": "Tìm và lọc game trong website",
+    "text": "Danh sách game hỗ trợ tìm kiếm theo tên game, developer hoặc publisher; lọc theo developer, publisher, trạng thái miễn phí và năm phát hành. Kết quả được phân trang và có thể sắp xếp theo tên, ngày phát hành hoặc độ tuổi yêu cầu. Trong phiên bản mã nguồn được đối chiếu, tham số genre và category được API tiếp nhận nhưng chưa được áp dụng trong truy vấn lọc. Không nên khẳng định kết quả đã lọc theo genre hoặc category chỉ vì giao diện hoặc request có trường này.",
+    "category": "project_guide",
+    "language": "vi",
+    "source": "back_end/app/services/steam_service.py",
+    "version": "1",
+    "reviewed_at": "2026-11-01",
+    "status": "draft"
+  },
+  {
+    "_id": "project-dashboard-v1",
+    "title": "Dashboard cho biết điều gì?",
+    "text": "Dashboard cung cấp tổng số game, tổng số reviews, số game miễn phí và có phí, cùng các thống kê về developer và ngôn ngữ. Các biểu đồ thể hiện phân bố game theo thể loại, năm phát hành và ngôn ngữ hỗ trợ. Top game trong API được sắp theo số reviews, không phải một bảng xếp hạng chất lượng hay doanh thu. Các chỉ số phản ánh dataset đã nạp vào dự án; muốn biết giá trị hiện tại phải truy vấn dữ liệu.",
+    "category": "project_guide",
+    "language": "vi",
+    "source": "back_end/app/services/steam_service.py",
+    "version": "1",
+    "reviewed_at": "2026-11-01",
+    "status": "draft"
+  },
+  {
+    "_id": "project-chat-session-v1",
+    "title": "Phiên chat và câu hỏi tiếp nối",
+    "text": "Người dùng tạo hoặc chọn một phiên chat rồi gửi câu hỏi. Mỗi câu hỏi tạo một tác vụ phân tích riêng. Phiên lưu các câu hỏi và câu trả lời để có thể mở lại. Hệ thống dùng các lượt đã hoàn tất gần đây trong cùng phiên để cung cấp ngữ cảnh cho câu hỏi tiếp theo; không tự đưa toàn bộ lịch sử của mọi phiên vào một câu trả lời. Để hỏi tiếp rõ ràng, nên nêu tên chỉ số, khoảng thời gian hoặc biểu đồ đang được nhắc tới.",
+    "category": "project_guide",
+    "language": "vi",
+    "source": "back_end/app/api/v1/agent_rpc.py",
+    "version": "1",
+    "reviewed_at": "2026-11-01",
+    "status": "draft"
+  },
+  {
+    "_id": "project-chart-freshness-v1",
+    "title": "Biểu đồ đã lưu có phải dữ liệu mới nhất không?",
+    "text": "Trợ lý có công cụ tìm và lấy lại biểu đồ đã lưu của người dùng. Việc tái sử dụng giúp tránh tính toán lại khi dữ liệu cũ vẫn phù hợp. Một biểu đồ đã lưu không tự chứng minh dữ liệu của nó mới nhất. Nếu cần dữ liệu hiện tại, hãy yêu cầu truy vấn lại hoặc làm mới biểu đồ và kiểm tra kết quả công cụ. Không nên lấy giá trị trong tài liệu hướng dẫn làm số liệu hiện tại của dataset.",
+    "category": "project_guide",
+    "language": "vi",
+    "source": "back_end/app/agent_harness/mcp.py",
+    "version": "1",
+    "reviewed_at": "2026-11-01",
+    "status": "draft"
+  },
+  {
+    "_id": "metric-game-versus-review-v1",
+    "title": "Số game và số reviews khác nhau như thế nào?",
+    "text": "Một game được định danh bằng steam_appid; một review được định danh bằng recommendationid và liên kết tới game. Một game có thể có nhiều reviews. Vì vậy đếm dòng sau khi nối games với reviews có thể đếm reviews thay vì đếm game. Khi yêu cầu tổng số game, cần đếm game duy nhất hoặc truy vấn bảng games. Khi yêu cầu số reviews, cần đếm các review tương ứng với điều kiện lọc.",
+    "category": "metric_definition",
+    "language": "vi",
+    "source": "back_end/app/models/steam.py",
+    "version": "1",
+    "reviewed_at": "2026-11-01",
+    "status": "draft"
+  },
+  {
+    "_id": "metric-multiple-genres-v1",
+    "title": "Vì sao tổng game theo genre có thể lớn hơn tổng số game?",
+    "text": "Một game có thể thuộc nhiều genre, được biểu diễn bằng bảng nối game_genres. Khi thống kê từng genre, cùng một game có thể xuất hiện trong nhiều nhóm. Cộng số lượng của tất cả genre không tương đương với đếm game duy nhất. Ngoài ra, game chưa có liên kết genre có thể không xuất hiện trong thống kê dùng phép nối trong giữa genre và game_genres. Cần xác định rõ đang đếm game duy nhất hay số quan hệ game-genre.",
+    "category": "metric_definition",
+    "language": "vi",
+    "source": "back_end/app/models/steam.py",
+    "version": "1",
+    "reviewed_at": "2026-11-01",
+    "status": "draft"
+  },
+  {
+    "_id": "metric-sample-versus-total-v1",
+    "title": "Dòng dữ liệu mẫu có đại diện cho toàn bộ dataset không?",
+    "text": "Dữ liệu mẫu giúp xem cấu trúc và ví dụ giá trị, không mặc nhiên đại diện cho toàn bộ dataset. Công cụ phân tích giới hạn số dòng trả về để tránh gửi toàn bộ bảng tới model. Không dùng số dòng mẫu làm tổng số game hoặc reviews và không suy ra tỷ lệ toàn bộ dataset từ một mẫu chưa được thiết kế thống kê. Để trả lời tổng số hoặc tỷ lệ, cần truy vấn tổng hợp theo đúng điều kiện.",
+    "category": "metric_definition",
+    "language": "vi",
+    "source": "back_end/app/agent_harness/mcp.py",
+    "version": "1",
+    "reviewed_at": "2026-11-01",
+    "status": "draft"
+  }
+]

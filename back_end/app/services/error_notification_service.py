@@ -30,8 +30,8 @@ def redact_text(value: Any, limit: int = 3000) -> str:
     """Remove common credentials and cap data sent to the model/email."""
     text = str(value or "")
     text = _URL_CREDENTIALS.sub(r"\1://<redacted>", text)
-    text = _SECRET_ASSIGNMENT.sub(lambda match: f"{match.group(1)}=<redacted>", text)
     text = _BEARER.sub("Bearer <redacted>", text)
+    text = _SECRET_ASSIGNMENT.sub(lambda match: f"{match.group(1)}=<redacted>", text)
     text = _KNOWN_TOKEN.sub("<redacted-token>", text)
     return text[:limit]
 

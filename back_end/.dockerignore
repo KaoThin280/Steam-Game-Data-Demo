@@ -13,6 +13,7 @@ dist/
 venv/
 env/
 .venv/
+.venv*/
 ENV/
 
 # IDE
@@ -25,6 +26,7 @@ ENV/
 .env
 .env.*
 !.env.example
+!.env.docker.example
 
 # Logs
 *.log
@@ -42,3 +44,16 @@ htmlcov/
 # Git
 .git/
 .gitignore
+
+# Runtime output must not become part of the image.
+temp_data/
+test_logs/
+
+# Local release bundles and private credentials are not runtime source.
+backend-image.tar
+backend-image.tar.gz
+*.key
+*.pem
+*.p12
+*.pfx
+credentials.local.json

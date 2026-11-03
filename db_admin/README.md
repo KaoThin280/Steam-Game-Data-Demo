@@ -2,7 +2,7 @@
 
 Local Flask panel for browsing and editing the **Supabase PostgreSQL** database and the **Upstash Redis** instance used by the back-end.
 
-> **Important:** This panel is **NOT** deployed to the public VPS. Run it on a developer machine or admin laptop only. The back-end VPS stays minimal.
+> **Important:** This panel is intended for local/internal use. Run it on a developer machine or admin laptop only; this review does not verify what is deployed on the VPS. The back-end VPS stays minimal.
 
 ## Features
 
@@ -51,7 +51,7 @@ DATABASE_URL=postgresql://postgres:PASSWORD@db.xxx.supabase.co:5432/postgres
 REDIS_URL=rediss://default:PASSWORD@xxx.upstash.io:6379
 ```
 
-The panel talks directly to the database with SQLAlchemy/psycopg2, so `DATABASE_URL` must use the **Session mode** connection (port 5432), not the Transaction pooler (port 6543).
+The panel talks directly to the database with SQLAlchemy/psycopg2, so `DATABASE_URL` should be configured with a tested direct or session-pooler URL for administrative work; this repository does not establish universal incompatibility with every transaction-pooler configuration.
 
 ## Directory layout
 
@@ -74,4 +74,6 @@ db_admin/
 
 ## Security
 
-The panel bypasses the back-end RBAC and connects directly to the database, so it has full read/write access. Treat `ADMIN_ROOT_PASSWORD` like any other production secret and never expose port 5000 on a public interface.
+The panel bypasses the back-end RBAC and connects directly to the database, so its database access follows the configured database role, not website permissions. Treat `ADMIN_ROOT_PASSWORD` like any other production secret and never expose port 5000 on a public interface.
+
+See [documentation index](../docs/README.md) and [security boundaries](../docs/operations/security.md).

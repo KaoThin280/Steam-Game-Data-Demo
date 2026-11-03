@@ -1,0 +1,4 @@
+interface:
+  display_name: "Steam Backend"
+  short_description: "Develop Steam APIs, auth, database and operations"
+  default_prompt: "Use $steam-backend to implement the requested Steam backend change and verify its API, permission and data contracts."

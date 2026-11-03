@@ -20,6 +20,11 @@ def test_redact_text_removes_credentials_and_tokens():
     assert "postgresql://<redacted>" in redacted
 
 
+@pytest.mark.parametrize("prefix", ["Authorization=", "Authorization: ", "authorization = ", ""])
+def test_bearer_token_is_redacted_before_assignment(prefix):
+    assert "sensitive-token" not in redact_text(prefix + "Bearer sensitive-token")
+
+
 def test_parse_summary_accepts_fenced_json():
     title, body = _parse_summary(
         '```json\n{"title":"Database unavailable","body":"Check the read-only connection."}\n```',

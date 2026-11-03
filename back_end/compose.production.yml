@@ -1,0 +1,59 @@
+# Use a tested image exported by the Docker release workflow. Never build on VPS.
+name: steam-backend-production
+
+x-runtime: &runtime
+  image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the tested release tag}
+  env_file: .env.production
+  init: true
+  restart: unless-stopped
+  pids_limit: 96
+  stop_grace_period: 45s
+  logging:
+    driver: json-file
+    options:
+      max-size: "5m"
+      max-file: "2"
+
+x-environment: &environment
+  DEBUG: "false"
+  ENABLE_LEGACY_AI: "false"
+  DB_SSL_VERIFY: "true"
+  MCP_SERVER_URL: http://mcp:8001/mcp
+  DB_POOL_SIZE: "1"
+  DB_MAX_OVERFLOW: "1"
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+
+services:
+  mcp:
+    <<: *runtime
+    environment: *environment
+    command: ["python", "-m", "uvicorn", "app.mcp_server:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
+    mem_limit: ${MCP_MEMORY_LIMIT:-256m}
+    memswap_limit: ${MCP_MEMORY_LIMIT:-256m}
+    cpus: ${MCP_CPU_LIMIT:-0.08}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.healthcheck", "http://127.0.0.1:8001/health"]
+      interval: 30s
+      timeout: 6s
+      start_period: 60s
+      retries: 5
+
+  api:
+    <<: *runtime
+    environment: *environment
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-proxy-headers"]
+    ports:
+      - "${API_BIND_ADDRESS:-127.0.0.1}:${API_HOST_PORT:-8000}:8000"
+    mem_limit: ${API_MEMORY_LIMIT:-384m}
+    memswap_limit: ${API_MEMORY_LIMIT:-384m}
+    cpus: ${API_CPU_LIMIT:-0.12}
+    depends_on:
+      mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.healthcheck", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 6s
+      start_period: 90s
+      retries: 5

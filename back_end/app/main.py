@@ -15,7 +15,8 @@ from sqlalchemy import select, text
 
 from app import __version__
 from app.agent_harness.mcp import HTTPMCPGateway
-from app.api.v1 import admin, agent_rpc, ai_agent, auth, chat, dashboard, data_files, games
+from app.api.router import build_api_router
+from app.api.v1 import agent_rpc
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.core.rate_limit import rate_limit
@@ -225,17 +226,9 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 # ============== Routers ==============
 API_V1 = settings.API_V1_PREFIX
 
-app.include_router(auth.router, prefix=API_V1)
-app.include_router(games.router, prefix=API_V1)
-app.include_router(dashboard.router, prefix=API_V1)
-app.include_router(agent_rpc.router, prefix=API_V1)
-app.include_router(admin.router, prefix=API_V1)
-if settings.ENABLE_LEGACY_AI:
-    # Legacy E2B/chat/artifact routes use process-global state and are not
-    # suitable for multi-user production deployments. Opt in only while migrating.
-    app.include_router(ai_agent.router, prefix=API_V1)
-    app.include_router(chat.router, prefix=API_V1)
-    app.include_router(data_files.router, prefix=API_V1)
+app.include_router(
+    build_api_router(enable_legacy_ai=settings.ENABLE_LEGACY_AI), prefix=API_V1
+)
 
 # ============== Static files (temp_data for E2B-generated artifacts) ==============
 # NOTE: StaticFiles mount removed for security. Files are now served via

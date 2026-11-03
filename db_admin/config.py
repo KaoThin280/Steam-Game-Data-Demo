@@ -17,7 +17,7 @@ class Config:
 
     # Admin root credentials
     ADMIN_ROOT_USERNAME = os.getenv("ADMIN_ROOT_USERNAME", "admin_root")
-    ADMIN_ROOT_PASSWORD = os.getenv("ADMIN_ROOT_PASSWORD", "AdminRoot@2024")
+    ADMIN_ROOT_PASSWORD = os.environ["ADMIN_ROOT_PASSWORD"]
 
     # PostgreSQL
     DATABASE_URL = os.getenv("DATABASE_URL", "")

@@ -10,6 +10,8 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
+import getpass
 import sys
 import time
 from pathlib import Path
@@ -18,8 +20,8 @@ from typing import Any, Dict
 import requests
 
 API = "http://localhost:8000/api/v1"
-EMAIL = "vercel@gmail.com"
-PASSWORD = "Thinh@28082002"
+EMAIL = os.getenv("LOCAL_TEST_EMAIL", "")
+PASSWORD = os.getenv("LOCAL_TEST_PASSWORD", "")
 OUTPUT_DIR = Path(__file__).parent / "output"
 TIMEOUT = 120
 
@@ -45,6 +47,9 @@ def truncate(text: str, n: int = 400) -> str:
 
 
 def main() -> int:
+    if not EMAIL:
+        raise SystemExit("Set LOCAL_TEST_EMAIL before running this legacy test.")
+    password = PASSWORD or getpass.getpass("Test account password: ")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     s = requests.Session()
 
@@ -61,7 +66,7 @@ def main() -> int:
 
     # 2. login
     hr("2. Login")
-    r = s.post(f"{API}/auth/login", json={"email": EMAIL, "password": PASSWORD}, timeout=15)
+    r = s.post(f"{API}/auth/login", json={"email": EMAIL, "password": password}, timeout=15)
     print(f"POST /auth/login -> {r.status_code}")
     if r.status_code != 200:
         print("Login failed. Update EMAIL/PASSWORD at the top of this file.")

@@ -1,0 +1,65 @@
+# Standalone local stack. Never reads the VPS-style .env by default.
+name: steam-backend-local
+
+x-runtime: &runtime
+  image: steam-backend:local
+  build:
+    context: .
+  env_file:
+    - ${BACKEND_LOCAL_ENV_FILE:-.env.docker.local}
+  init: true
+  restart: "no"
+  pids_limit: 96
+  stop_grace_period: 30s
+  logging:
+    driver: json-file
+    options:
+      max-size: "5m"
+      max-file: "2"
+
+x-environment: &environment
+  DEBUG: "false"
+  ENABLE_LEGACY_AI: "false"
+  ERROR_NOTIFICATIONS_ENABLED: "false"
+  BOOTSTRAP_ADMIN_EMAIL: ""
+  BOOTSTRAP_ADMIN_PASSWORD: ""
+  MCP_SERVER_URL: http://mcp:8001/mcp
+  CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+  DB_POOL_SIZE: "1"
+  DB_MAX_OVERFLOW: "1"
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+
+services:
+  mcp:
+    <<: *runtime
+    environment: *environment
+    command: ["python", "-m", "uvicorn", "app.mcp_server:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
+    mem_limit: ${MCP_MEMORY_LIMIT:-256m}
+    memswap_limit: ${MCP_MEMORY_LIMIT:-256m}
+    cpus: ${MCP_CPU_LIMIT:-0.08}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.healthcheck", "http://127.0.0.1:8001/health"]
+      interval: 30s
+      timeout: 6s
+      retries: 5
+      start_period: 60s
+
+  api:
+    <<: *runtime
+    environment: *environment
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    ports:
+      - "127.0.0.1:${BACKEND_LOCAL_PORT:-8000}:8000"
+    mem_limit: ${API_MEMORY_LIMIT:-384m}
+    memswap_limit: ${API_MEMORY_LIMIT:-384m}
+    cpus: ${API_CPU_LIMIT:-0.12}
+    depends_on:
+      mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.healthcheck", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 6s
+      retries: 5
+      start_period: 90s
