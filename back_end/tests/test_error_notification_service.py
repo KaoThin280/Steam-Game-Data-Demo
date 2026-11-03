@@ -1,6 +1,8 @@
 import pytest
+from types import SimpleNamespace
 
 from app.core.config import settings
+from app.services import error_notification_service as notification_module
 from app.services.error_notification_service import (
     ErrorNotificationService,
     _parse_summary,
@@ -35,11 +37,15 @@ def test_parse_summary_accepts_fenced_json():
 
 
 @pytest.mark.asyncio
-async def test_duplicate_notification_is_suppressed(monkeypatch):
+@pytest.mark.parametrize("clock_start", [0.0, 1.0, 299.0, 300.0, 10000.0])
+async def test_duplicate_notification_is_suppressed(monkeypatch, clock_start):
     service = ErrorNotificationService()
     sent: list[str] = []
     monkeypatch.setattr(settings, "ERROR_NOTIFICATIONS_ENABLED", True)
     monkeypatch.setattr(settings, "ERROR_NOTIFICATION_MIN_INTERVAL_SECONDS", 300)
+    # Patch only this module's clock, not asyncio's global monotonic clock.
+    clock = [clock_start]
+    monkeypatch.setattr(notification_module, "time", SimpleNamespace(monotonic=lambda: clock[0]))
 
     async def summarize(*_args, **_kwargs):
         return "A title", "A body"
@@ -55,3 +61,10 @@ async def test_duplicate_notification_is_suppressed(monkeypatch):
     assert first is True
     assert second is False
     assert sent == ["A title"]
+
+    # A different error must also respect the global notification interval.
+    clock[0] = clock_start + 299.0
+    assert await service.notify(component="api.http", error="another error") is False
+    clock[0] = clock_start + 300.0
+    assert await service.notify(component="api.http", error="boom") is True
+    assert sent == ["A title", "A title"]

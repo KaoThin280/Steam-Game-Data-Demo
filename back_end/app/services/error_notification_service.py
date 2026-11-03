@@ -66,7 +66,7 @@ class ErrorNotificationService:
 
     def __init__(self) -> None:
         self._last_sent: dict[str, float] = {}
-        self._last_any_sent = 0.0
+        self._last_any_sent: float | None = None
         self._lock = asyncio.Lock()
         self._tasks: set[asyncio.Task[bool]] = set()
 
@@ -125,7 +125,7 @@ class ErrorNotificationService:
         now = time.monotonic()
         interval = settings.ERROR_NOTIFICATION_MIN_INTERVAL_SECONDS
         async with self._lock:
-            if now - self._last_any_sent < interval:
+            if self._last_any_sent is not None and now - self._last_any_sent < interval:
                 return False
             last = self._last_sent.get(fingerprint)
             if last is not None and now - last < interval:
