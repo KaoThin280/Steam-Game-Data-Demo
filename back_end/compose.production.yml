@@ -18,9 +18,13 @@ x-environment: &environment
   DEBUG: "false"
   ENABLE_LEGACY_AI: "false"
   DB_SSL_VERIFY: "true"
+  DB_SSL_ENABLED: "true"
+  REDIS_FORCE_TLS: "true"
   MCP_SERVER_URL: http://mcp:8001/mcp
   DB_POOL_SIZE: "1"
   DB_MAX_OVERFLOW: "1"
+  AGENT_MAX_CONCURRENT_RUNS: "2"
+  AGENT_MAX_PENDING_RUNS: "8"
   OMP_NUM_THREADS: "1"
   OPENBLAS_NUM_THREADS: "1"
 

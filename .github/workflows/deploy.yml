@@ -43,7 +43,7 @@ jobs:
         run: docker build --platform linux/amd64 -t "$IMAGE" ./back_end
       - name: Check non-root runtime without network
         run: |
-          docker run --rm --network none --memory 384m --memory-swap 384m --cpus 0.12 "$IMAGE" python -c 'import os, fastapi, uvicorn, sqlalchemy, asyncpg; assert os.getuid() == 1000; print("IMPORT OK")'
+          docker run --rm --network none --memory 384m --memory-swap 384m --cpus 0.12 -e DEBUG=true -e DATABASE_URL=postgresql://test:test@localhost/test -e DATABASE_URL_READONLY=postgresql://reader:test@localhost/test -e REDIS_URL=redis://localhost:6379/0 -e RAG_ENABLED=true "$IMAGE" python -c 'import os; import app.main, app.mcp_server; from app.services.knowledge_retrieval import PineconeKnowledgeRetriever; from pinecone import AsyncPinecone; assert os.getuid() == 1000; print("APP AND RAG IMPORT OK")'
       - name: Package release (no environment secrets)
         run: |
           mkdir release
@@ -52,6 +52,7 @@ jobs:
           cp back_end/.env.production.example release/production.env.example
           printf '%s\n' "$IMAGE" > release/image-tag.txt
           cp docs/operations/docker-vps-migration.md release/README.md
+          cp docs/operations/rag-vps-release.md release/RAG-UPDATE.md
           cd release
           sha256sum backend-image.tar.gz compose.production.yml production.env.example image-tag.txt > SHA256SUMS
       - uses: actions/upload-artifact@v4

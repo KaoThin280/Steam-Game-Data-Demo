@@ -55,3 +55,7 @@ Gateway chuyển một số lỗi tool/HTTP timeout/kết nối thành lỗi c�
 Runtime hiện lưu `str(exc)` vào lỗi run/event; không có bước redaction tổng quát cho trace này. Ngưỡng event 65.536 byte kích hoạt cắt preview, không phải giới hạn tuyệt đối kích thước JSON sau khi thêm wrapper. SQL validator và bộ lọc Python là lớp kiểm tra đầu vào; quyền database thực tế và E2B mới là những ranh giới cần được kiểm chứng.
 
 Xem [prompt và tools](../reference/agent-prompts-and-tools.md), [API contract](../reference/api.md) và [testing](../guides/testing.md).
+
+## Retrieval tùy chọn
+
+Khi RAG_ENABLED=True, runtime gọi KnowledgeRetriever một lần trước model, ghi retrieval.started/completed/failed và đưa nguồn vào context. Pinecone adapter không thay tool loop. Xem [contract, giới hạn và kiểm thử](../guides/rag-local.md).

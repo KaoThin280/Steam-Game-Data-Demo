@@ -20,7 +20,12 @@ export function AgentChatWorkspace() {
     const value = draft.trim();
     if (!value || !session || activeRun) return;
     setDraft("");
-    await send(value);
+    try {
+      await send(value);
+    } catch {
+      setDraft((current) => current || value);
+      window.alert("Chưa gửi hoặc hoàn tất được yêu cầu. Hãy kiểm tra phiên chat và thử lại sau ít giây.");
+    }
   };
   const submit = async (event: FormEvent) => { event.preventDefault(); await sendDraft(); };
 
@@ -87,12 +92,24 @@ export function AgentChatWorkspace() {
 function ConversationTurn({ input, output, events, status }: { input: string; output: string | null; events: AgentEvent[]; status: string }) {
   const charts = useMemo(() => events.flatMap((event) => { const chart = event.payload.result?.content?.chart; return chart ? [chart] : []; }), [events]);
   const toolEvents = events.filter((event) => event.type === "tool.started" || event.type === "tool.finished" || event.type === "run.recovered");
+  const retrieval = [...events].reverse().find((event) => event.type === "retrieval.completed" || event.type === "retrieval.failed" || event.type === "retrieval.started");
   return <div className="mx-auto max-w-4xl space-y-4">
     <div className="flex justify-end gap-3"><div className="max-w-[82%] rounded-2xl rounded-tr-md bg-accent px-4 py-3 text-sm leading-relaxed text-white shadow-sm whitespace-pre-wrap">{input}</div><Avatar kind="user" /></div>
     <div className="flex items-start gap-3"><Avatar kind="agent" /><div className="min-w-0 max-w-[90%] flex-1 space-y-3">
       {toolEvents.length > 0 && <div className="flex flex-wrap gap-2">{toolEvents.map((event) => <span key={event.sequence} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel px-2.5 py-1 text-[11px] text-muted">{event.type.startsWith("tool") ? <Wrench className="h-3 w-3" /> : <Database className="h-3 w-3" />}{event.payload.name || event.type}</span>)}</div>}
       {charts.map((chart, index) => <AgentChart key={`${chart.title}-${index}`} chart={chart} />)}
-      {output ? <div className="rounded-2xl rounded-tl-md border border-line bg-panel px-4 py-3 text-sm leading-7 text-fg shadow-sm whitespace-pre-wrap">{output}</div> : <div className="inline-flex items-center gap-2 rounded-2xl border border-line bg-panel px-4 py-3 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin text-accent" /> {status === "queued" ? "Waiting to start…" : "Agent is working…"}</div>}
+      {retrieval && <details className="rounded-xl border border-line bg-panel px-4 py-3 text-sm text-fg">
+        <summary className="cursor-pointer font-medium">Tài liệu tham khảo đã truy xuất ({retrieval.payload.sources?.length ?? 0})</summary>
+        {retrieval.type === "retrieval.started" && <p className="mt-2 text-muted">Đang tìm tài liệu…</p>}
+        {retrieval.payload.status === "unavailable" && <p className="mt-2 text-muted">Tạm thời không truy xuất được tài liệu. Trợ lý vẫn có thể dùng công cụ dữ liệu.</p>}
+        {retrieval.payload.status === "empty" && <p className="mt-2 text-muted">Không có tài liệu phù hợp trong giới hạn truy xuất.</p>}
+        {retrieval.payload.sources?.map((source) => <div key={source.citation} className="mt-3 border-t border-line pt-3">
+          <p className="font-medium">[{source.citation}] {source.source.startsWith("https://") ? <a href={source.source} target="_blank" rel="noopener noreferrer" className="text-accent underline">{source.title}</a> : source.title}</p>
+          <p className="mt-1 whitespace-pre-wrap text-muted">{source.text}</p>
+        </div>)}
+        <p className="mt-2 text-xs text-muted">Nguồn truy xuất không đồng nghĩa mọi đoạn đều được dùng trong câu trả lời.</p>
+      </details>}
+      {output ? <div className="rounded-2xl rounded-tl-md border border-line bg-panel px-4 py-3 text-sm leading-7 text-fg shadow-sm whitespace-pre-wrap">{output}</div> : <div className="inline-flex items-center gap-2 rounded-2xl border border-line bg-panel px-4 py-3 text-sm text-muted">{(status === "queued" || status === "running") && <Loader2 className="h-4 w-4 animate-spin text-accent" />} {status === "cancelled" ? "Đã hủy tác vụ." : status === "failed" ? "Tác vụ gặp lỗi. Bạn có thể thử lại." : status === "queued" ? "Waiting to start…" : "Agent is working…"}</div>}
     </div></div>
   </div>;
 }

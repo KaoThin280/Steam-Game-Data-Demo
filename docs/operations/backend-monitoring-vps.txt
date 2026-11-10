@@ -1,0 +1,266 @@
+HƯỚNG DẪN MONITORING BACKEND TRÊN VPS
+Ngày soạn: 03/11/2026
+
+Các lệnh dưới đây chạy trong terminal SSH trên VPS Ubuntu, không chạy trong
+PowerShell Windows. Đây là lệnh quan sát, không restart hoặc xóa dữ liệu.
+Ctrl+C thoát theo dõi log/stats, không dừng dịch vụ.
+Không gửi token, cookie, mật khẩu hoặc URL có thông tin đăng nhập trong log.
+
+1. CHUẨN BỊ MỖI PHIÊN SSH
+========================
+cd ~/steam-releases/634c6bacd161648580938a880bf7b41158a18825
+
+dc() {
+  sudo docker compose --env-file .env.production -f compose.production.yml "$@"
+}
+
+Ý nghĩa:
+- cd: vào thư mục bản phát hành đang chạy.
+- dc: hàm viết tắt cho Docker Compose, chỉ tồn tại trong phiên shell hiện tại.
+- "$@": chuyển nguyên các tham số cho Compose.
+- --env-file: file cung cấp biến cấu hình cho Compose.
+- -f: chỉ định file Compose.
+- Khi đổi bản phát hành, sửa đường dẫn cd cho đúng. Không dùng thư mục cũ
+  để thực hiện thao tác triển khai bản mới.
+- File .env.production chứa secret; không in toàn bộ file hoặc chạy
+  'docker compose config' không có --quiet rồi gửi kết quả lên chat.
+
+2. TRẠNG THÁI CONTAINER
+======================
+dc ps -a
+
+Hiển thị cả container đang chạy và đã dừng.
+- Up: tiến trình container đang chạy.
+- healthy: healthcheck đạt.
+- unhealthy: healthcheck thất bại, tiến trình có thể vẫn chạy.
+- Exited: container đã dừng.
+- Restarting: đang khởi động lại, cần xem log.
+
+sudo docker inspect --format 'Status={{.State.Status}} OOMKilled={{.State.OOMKilled}} Restarts={{.RestartCount}}' steam-backend-production-api-1
+sudo docker inspect --format 'Status={{.State.Status}} OOMKilled={{.State.OOMKilled}} Restarts={{.RestartCount}}' steam-backend-production-mcp-1
+
+OOMKilled=true: trạng thái ghi nhận container bị kết thúc do thiếu bộ nhớ.
+Restarts: số lần Docker restart container; tăng liên tục cần kiểm tra lỗi.
+OOMKilled=false không chứng minh VPS chưa từng thiếu RAM trong quá khứ.
+Nếu tên container khác, lấy tên hiện tại từ dc ps -a.
+
+3. LOG API VÀ MCP
+================
+dc logs --tail 100 --timestamps api
+dc logs --tail 100 --timestamps mcp
+
+Xem 100 dòng gần nhất của từng service kèm thời gian.
+API: startup, xác thực, HTTP request, điều phối agent và lỗi ứng dụng.
+MCP: startup, request công cụ và lỗi truy cập dữ liệu phía MCP.
+Mức chi tiết phụ thuộc các câu ghi log trong code; không phải mọi thao tác
+chatbot hoặc truy vấn SQL đều được ghi đầy đủ.
+
+dc logs -f --tail 50 api
+dc logs -f --tail 50 mcp
+dc logs -f --tail 50 api mcp
+
+- -f: theo dõi các dòng mới liên tục.
+- --tail 50: bắt đầu từ 50 dòng cuối.
+- api/mcp: tên service, không phải tên image.
+- Ctrl+C để thoát.
+
+dc logs --since 15m --timestamps api mcp
+
+--since 15m: log trong 15 phút gần đây; có thể thay bằng 30m hoặc 1h.
+Timestamp có thể là UTC; đối chiếu múi giờ khi so với giờ Việt Nam (UTC+7).
+
+dc logs --since 30m api mcp 2>&1 | grep -Ei -C 3 'error|exception|traceback|timeout|failed|429|401'
+
+Lọc các dòng nghi lỗi và 3 dòng trước/sau mỗi kết quả.
+- 2>&1: gộp stderr vào stdout để lọc cả thông báo lỗi.
+- grep -E: dùng biểu thức nhiều lựa chọn ngăn bởi dấu |.
+- -i: không phân biệt chữ hoa/thường.
+- -C 3: thêm ngữ cảnh; tăng số nếu traceback bị thiếu.
+- Không có kết quả không đồng nghĩa hệ thống không có lỗi.
+
+dc logs --since 30m api 2>&1 | grep -Ei 'postgres|redis|mcp|openrouter|e2b|agent'
+
+Lọc thông báo liên quan dependency và agent; khi cần chẩn đoán đầy đủ,
+hãy xem log chưa lọc để tránh bỏ mất ngữ cảnh.
+
+4. HEALTHCHECK VÀ ĐƯỜNG TRUY CẬP
+==============================
+curl --max-time 30 -sS -w '\nHTTP: %{http_code}\nSeconds: %{time_total}\n' http://127.0.0.1:8000/health
+
+Kiểm tra API trực tiếp từ VPS, bỏ qua Nginx/DNS/HTTPS.
+- --max-time 30: tối đa 30 giây cho lệnh curl.
+- -sS: bỏ progress nhưng vẫn hiện lỗi.
+- -w: in mã HTTP và tổng thời gian.
+- Mong đợi: HTTP 200 và JSON status=healthy.
+- Kiểm tra cả database/redis trong JSON, không chỉ HTTP 200.
+
+curl --max-time 30 -sS -w '\nHTTP: %{http_code}\nSeconds: %{time_total}\n' https://steam-api-thinh.duckdns.org/health
+
+Kiểm tra thêm DNS, TLS và Nginx. Chạy từ VPS chưa chứng minh mọi mạng bên
+ngoài đều truy cập được. Có thể chạy trên Windows với curl.exe thay curl.
+
+dc exec -T mcp python -c 'import urllib.request; r=urllib.request.urlopen("http://127.0.0.1:8001/health",timeout=30); print(r.status); print(r.read().decode())'
+
+Gọi MCP bên trong container; -T tắt cấp terminal tương tác.
+MCP /health kiểm tra kết nối PostgreSQL readonly bằng SELECT 1.
+127.0.0.1 bên trong container là container đó, không phải VPS hay container khác.
+API dùng cổng 8000; MCP dùng cổng 8001.
+
+sudo docker inspect --format '{{json .State.Health}}' steam-backend-production-api-1
+sudo docker inspect --format '{{json .State.Health}}' steam-backend-production-mcp-1
+
+Xem kết quả các probe gần nhất, ExitCode và Output.
+- Health check exceeded timeout: toàn bộ probe vượt thời gian Docker cho phép.
+- Connection refused: địa chỉ/cổng không có dịch vụ lắng nghe tại thời điểm gọi.
+- TLS/authentication/network error: xem chi tiết và log ứng dụng tương ứng.
+
+sudo docker inspect --format '{{json .Config.Healthcheck}}' steam-backend-production-api-1
+sudo docker inspect --format '{{json .Config.Healthcheck}}' steam-backend-production-mcp-1
+
+Xem healthcheck THỰC SỰ áp dụng cho container, gồm lệnh, cổng và timeout.
+Sửa file Compose không tự thay đổi cấu hình container đã chạy.
+Healthcheck không thay thế kiểm thử đăng nhập, chat, tạo biểu đồ hoặc quyền SQL.
+
+5. CPU, RAM, ĐĨA VÀ TIẾN TRÌNH
+=============================
+sudo docker stats steam-backend-production-api-1 steam-backend-production-mcp-1
+
+Theo dõi CPU/RAM/I/O liên tục; Ctrl+C để thoát.
+
+sudo docker stats --no-stream
+
+Chụp một lần cho các container đang chạy.
+- MEM USAGE / LIMIT: RAM đang dùng / giới hạn container.
+- CPU %: mức sử dụng tại thời điểm đo, không phải giới hạn CPU cấu hình.
+- NET I/O và BLOCK I/O: bộ đếm lưu lượng, không phải tốc độ tức thời.
+- PIDS: số task/process/thread theo cách Docker ghi nhận.
+
+free -h
+uptime
+df -h /
+sudo docker system df
+
+- free -h: RAM/swap toàn VPS, chú ý cột available.
+- uptime: thời gian chạy và load average 1/5/15 phút; load không phải CPU %.
+- df -h /: dung lượng filesystem gốc.
+- docker system df: dung lượng image/container/cache trên đĩa.
+- Image 1.18 GB trên đĩa không có nghĩa ứng dụng chiếm 1.18 GB RAM.
+- Không chạy docker system prune tùy tiện: có thể xóa image cần rollback.
+
+ps -eo pid,comm,%cpu,%mem,rss --sort=-rss | head -15
+
+Xem các tiến trình dùng RAM nhiều nhất, RSS tính theo KiB.
+
+6. NGINX: REQUEST CÔNG KHAI VÀ LỖI PROXY
+======================================
+sudo systemctl status nginx --no-pager -l
+sudo tail -n 100 -f /var/log/nginx/access.log
+sudo tail -n 100 -f /var/log/nginx/error.log
+
+- status: trạng thái dịch vụ; --no-pager không mở trình phân trang.
+- access.log: URL, HTTP status và thông tin request theo log format hiện tại.
+- error.log: lỗi upstream, timeout, kết nối bị từ chối, lỗi proxy.
+- tail -n 100: 100 dòng cuối; -f theo dõi dòng mới.
+- Đường dẫn trên là mặc định; cấu hình log riêng có thể dùng file khác.
+
+sudo tail -n 1000 /var/log/nginx/access.log | grep -E '/api/v1/auth/(login|me|refresh)'
+
+Lọc request xác thực, hữu ích khi theo dõi 401 và refresh liên tục.
+
+sudo tail -n 1000 /var/log/nginx/access.log | awk '$9 ~ /^(401|429|500|502|503|504)$/'
+
+Lọc mã lỗi theo định dạng access log thông thường (status ở cột 9).
+- 401: thiếu hoặc sai thông tin xác thực; chưa chắc server gặp sự cố.
+- 429: bị giới hạn tần suất; xem Response/Retry-After ở DevTools.
+- 500: lỗi ứng dụng, cần log API/MCP.
+- 502: proxy không nhận được phản hồi upstream hợp lệ.
+- 503: dịch vụ không sẵn sàng.
+- 504: gateway chờ upstream quá lâu.
+
+sudo journalctl -u nginx --since "30 minutes ago" --no-pager
+sudo nginx -t
+
+journalctl xem log dịch vụ; nginx -t kiểm tra cú pháp file hiện tại,
+không reload Nginx và không chứng minh upstream API hoạt động.
+
+7. DOCKER DAEMON, KERNEL VÀ CỔNG
+==============================
+sudo systemctl status docker --no-pager -l
+sudo journalctl -u docker --since "1 hour ago" --no-pager
+
+Xem Docker daemon khi container không khởi động hoặc Docker gặp lỗi.
+
+sudo journalctl -k --since "1 hour ago" --no-pager | grep -Ei 'out of memory|oom|killed process'
+
+Tìm sự kiện thiếu bộ nhớ do kernel ghi lại trong một giờ gần đây.
+
+sudo ss -lntp | grep -E ':(80|443|8000|8001)\b'
+
+Xem cổng TCP đang lắng nghe và tiến trình sở hữu.
+- Nginx: 80/443 khi đã cấu hình HTTP/HTTPS.
+- API: dự kiến 127.0.0.1:8000 trên host.
+- MCP: không publish cổng ra host, nên không cần thấy 8001 trong kết quả này.
+- Cột PORTS có '8000/tcp' mà không có ánh xạ host->container không có nghĩa
+  cổng đó được công bố ra Internet.
+
+8. DNS VÀ CHỨNG CHỈ HTTPS
+========================
+getent ahostsv4 steam-api-thinh.duckdns.org
+
+Xem địa chỉ IPv4 DNS phân giải được. Đối chiếu IP ngoài hiện tại trong GCP.
+IP lúc soạn tài liệu: 35.212.195.195; đây là IP ephemeral, có thể thay đổi.
+
+sudo /snap/bin/certbot certificates
+systemctl list-timers --all | grep -Ei 'certbot|letsencrypt'
+sudo tail -n 80 /var/log/letsencrypt/letsencrypt.log
+
+Áp dụng khi Certbot được cài bằng Snap:
+- certificates: liệt kê chứng chỉ và hạn sử dụng.
+- list-timers: tìm lịch gia hạn tự động; tên timer phụ thuộc cách cài.
+- log: xem lỗi xác minh domain/gia hạn.
+
+Kiểm thử gia hạn chủ động (không phải thao tác xem log thuần túy):
+sudo /snap/bin/certbot renew --dry-run
+
+Lệnh này liên hệ máy chủ thử nghiệm của CA và có thể tạm cấu hình challenge.
+Không cần chạy mỗi lần kiểm tra trạng thái; dùng khi xác minh cơ chế gia hạn.
+
+9. DỊCH VỤ BÊN NGOÀI VPS
+=======================
+Supabase PostgreSQL và Upstash Redis không chạy trong Docker trên VPS này.
+Không có container postgres/redis local để xem docker logs.
+
+- Supabase Dashboard: kiểm tra log PostgreSQL, lỗi kết nối và tài nguyên.
+- Upstash Console: xem usage, request, lỗi và hạn mức gói đang dùng.
+- OpenRouter: xem hoạt động/request và chi phí theo khả năng tài khoản.
+- E2B: xem hoạt động sandbox nếu tính năng đang sử dụng.
+
+Đối chiếu cùng timestamp với log API/MCP. Không bật ghi toàn bộ prompt,
+token, dữ liệu người dùng hoặc SQL nhạy cảm chỉ để monitoring thông thường.
+
+10. BỘ LỆNH NHANH KHI CÓ SỰ CỐ
+=============================
+dc ps -a
+dc logs --since 10m --tail 150 --timestamps api mcp
+sudo docker stats --no-stream
+curl --max-time 30 -sS -w '\nHTTP: %{http_code}\n' http://127.0.0.1:8000/health
+sudo tail -n 50 /var/log/nginx/error.log
+
+Cách phân loại ban đầu:
+- API nội bộ healthy, domain lỗi: kiểm tra Nginx, DNS, TLS và firewall.
+- API unhealthy: xem log startup, healthcheck, DB/Redis/MCP và tài nguyên.
+- MCP unhealthy: kiểm tra healthcheck cổng 8001 và kết nối DB readonly.
+- 401 rồi 429: xem phiên đăng nhập và số lần refresh; không chỉ tăng hạn mức.
+- RAM thấp ở một thời điểm không loại trừ đỉnh RAM trước đó; xem kernel/OOM.
+
+11. LƯU LOG RA FILE ĐỂ ĐIỀU TRA
+=============================
+umask 077
+mkdir -p ~/steam-monitoring
+dc logs --since 30m --timestamps api mcp > ~/steam-monitoring/backend-last-30m.log 2>&1
+
+File nằm ngoài repository, quyền mặc định chỉ cho chủ tài khoản truy cập.
+Lệnh ghi đè file cùng tên; đổi tên nếu cần giữ nhiều lần chụp.
+Đọc và che secret/thông tin cá nhân trước khi chia sẻ.
+Log Docker bị xoay vòng theo giới hạn dung lượng; --since không khôi phục
+được log đã bị xóa do rotation. Đây không phải hệ thống lưu trữ log dài hạn.

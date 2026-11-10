@@ -1,10 +1,12 @@
 """Bounded, framework-free multi-step agent loop."""
 import asyncio
 import json
+import time
 from datetime import datetime, timezone
 from typing import Any
 
 from app.agent_harness.types import ModelProvider, RunStore, ToolGateway
+from app.agent_harness.knowledge import KnowledgeRetriever, KnowledgeResult, KNOWLEDGE_POLICY, knowledge_message, retrieval_query
 from app.core.config import settings
 
 
@@ -26,9 +28,10 @@ def _response_language(history: list[dict[str, Any]]) -> str:
 
 
 class AgentRuntime:
-    def __init__(self, provider: ModelProvider, tools: ToolGateway, store: RunStore, *, max_steps: int = 8, tool_timeout: float = 15.0) -> None:
+    def __init__(self, provider: ModelProvider, tools: ToolGateway, store: RunStore, *, max_steps: int = 8, tool_timeout: float = 15.0, retriever: KnowledgeRetriever | None = None, retrieval_timeout: float = 5.0) -> None:
         self.provider, self.tools, self.store = provider, tools, store
         self.max_steps, self.tool_timeout = max_steps, tool_timeout
+        self.retriever, self.retrieval_timeout = retriever, retrieval_timeout
 
     async def execute(self, run_id: str, history: list[dict[str, Any]]) -> None:
         await self.store.set_status(
@@ -41,6 +44,20 @@ class AgentRuntime:
             *history,
         ]
         try:
+            if self.retriever is not None and not await self.store.is_cancel_requested(run_id):
+                version = self.retriever.corpus_version
+                started = time.monotonic()
+                await self.store.append_event(run_id, "retrieval.started", {"corpus_version": version})
+                try:
+                    knowledge = await asyncio.wait_for(self.retriever.retrieve(retrieval_query(history)), self.retrieval_timeout)
+                except Exception:
+                    # Provider exceptions can contain credentials/request details. Never persist them.
+                    knowledge = KnowledgeResult("unavailable", version)
+                payload = knowledge.payload()
+                payload["duration_ms"] = round((time.monotonic() - started) * 1000)
+                await self.store.append_event(run_id, "retrieval.failed" if knowledge.status == "unavailable" else "retrieval.completed", payload)
+                messages[0]["content"] += "\n\n" + KNOWLEDGE_POLICY
+                messages.insert(1, knowledge_message(knowledge))
             definitions = await self.tools.list_tools()
             completed_calls: set[str] = set()
             for step in range(1, self.max_steps + 1):
@@ -84,8 +101,12 @@ class AgentRuntime:
                 await self.store.set_status(run_id, "cancelled")
                 await self.store.append_event(run_id, "run.cancelled", {"source": "task"})
             else:
-                await self.store.set_status(run_id, "queued")
-                await self.store.append_event(run_id, "run.interrupted", {"reason": "process_shutdown"})
+                if settings.AGENT_RECOVERY_ENABLED:
+                    await self.store.set_status(run_id, "queued")
+                    await self.store.append_event(run_id, "run.interrupted", {"reason": "process_shutdown"})
+                else:
+                    await self.store.set_status(run_id, "cancelled", cancel_requested=True)
+                    await self.store.append_event(run_id, "run.cancelled", {"source": "shutdown_recovery_disabled"})
         except Exception as exc:
             await self.store.append_event(run_id, "run.failed", {"code": "RUNTIME_ERROR", "message": str(exc)})
             await self.store.set_status(run_id, "failed", error_code="RUNTIME_ERROR", error_message=str(exc))

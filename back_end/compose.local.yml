@@ -20,6 +20,11 @@ x-runtime: &runtime
 x-environment: &environment
   DEBUG: "false"
   ENABLE_LEGACY_AI: "false"
+  AGENT_RECOVERY_ENABLED: "false"
+  RAG_ENABLED: "true"
+  PINECONE_INDEX_NAME: steam-knowledge
+  PINECONE_NAMESPACE: project-starter-v2
+  PINECONE_TEXT_FIELD: text
   ERROR_NOTIFICATIONS_ENABLED: "false"
   BOOTSTRAP_ADMIN_EMAIL: ""
   BOOTSTRAP_ADMIN_PASSWORD: ""

@@ -1,0 +1,66 @@
+# Isolated fixture database; no remote PostgreSQL/Redis credentials are loaded.
+name: steam-rag-local
+x-app: &app
+  image: steam-backend:rag-local
+  build: .
+  env_file: .env.rag-test.local
+  environment: &env
+    DATABASE_URL: postgresql://rag_local:rag_local_fixture@postgres:5432/rag_local
+    DATABASE_URL_READONLY: postgresql://rag_reader:rag_reader_fixture@postgres:5432/rag_local
+    DB_SSL_ENABLED: "false"
+    REDIS_URL: redis://redis:6379/0
+    REDIS_FORCE_TLS: "false"
+    DEBUG: "false"
+    RAG_ENABLED: "true"
+    ERROR_NOTIFICATIONS_ENABLED: "false"
+    MCP_SERVER_URL: http://mcp:8001/mcp
+    PINECONE_INDEX_NAME: steam-knowledge
+    PINECONE_NAMESPACE: project-starter-v2
+    PINECONE_TEXT_FIELD: text
+    CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+  restart: "no"
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rag_local
+      POSTGRES_PASSWORD: rag_local_fixture
+      POSTGRES_DB: rag_local
+    volumes:
+      - rag-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U rag_local -d rag_local"]
+      interval: 2s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+  seed:
+    <<: *app
+    command: [python, -m, app.rag_local_fixture]
+    depends_on:
+      postgres:
+        condition: service_healthy
+  mcp:
+    <<: *app
+    command: [python, -m, uvicorn, app.mcp_server:app, --host, 0.0.0.0, --port, "8001"]
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -m, app.healthcheck, "http://127.0.0.1:8001/health"]
+      interval: 5s
+      retries: 30
+  api:
+    <<: *app
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      mcp:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: [CMD, python, -m, app.healthcheck, "http://127.0.0.1:8000/health"]
+      interval: 5s
+      retries: 30
+volumes:
+  rag-postgres:

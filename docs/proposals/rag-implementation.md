@@ -1,6 +1,7 @@
 # Thiết kế triển khai RAG theo giai đoạn
 
-**Trạng thái: đề xuất, chưa triển khai.** Tài liệu này bổ sung [định hướng RAG](rag.md) thành các hạng mục có thể phát triển và kiểm thử. Tên module, contract và cấu hình bên dưới là thiết kế dự kiến, không phải file/API đã tồn tại. Nhà cung cấp embedding, kho index và ngân sách vẫn cần được chọn khi bắt đầu milestone liên quan.
+> Cập nhật 2026-11-09: retrieval Pinecone, events và hiển thị nguồn đã tích hợp; xem [trạng thái triển khai và kiểm thử local](../guides/rag-local.md). Các mục bên dưới là thiết kế gốc, không phải tất cả đều đã hoàn tất.
+**Trạng thái: triển khai một phần V1; xem hướng dẫn local để biết các phần đã kiểm thử.** Tài liệu này bổ sung [định hướng RAG](rag.md) thành các hạng mục có thể phát triển và kiểm thử. Tên module, contract và cấu hình bên dưới là thiết kế dự kiến, không phải file/API đã tồn tại. Nhà cung cấp embedding, kho index và ngân sách vẫn cần được chọn khi bắt đầu milestone liên quan.
 
 ## Phạm vi phiên bản đầu
 

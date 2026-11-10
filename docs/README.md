@@ -43,3 +43,5 @@ README trong [backend](../back_end/README.md), [frontend](../front_end/README.md
 - `archive/`: bản xuất cũ để đối chiếu, không dùng hướng dẫn vận hành.
 
 Markdown là bản nguồn hiện hành. Hai bản Word cũ nằm trong [archive](archive/README.md); chúng chưa được xuất lại theo nội dung mới. Khi thay đổi route/model/tool, cập nhật tài liệu cùng thay đổi code. Không chép số dòng cố định hoặc kết quả benchmark chưa đo vào tài liệu.
+
+- [Tích hợp RAG và thử Docker local cô lập](guides/rag-local.md): cấu hình, lệnh chạy, fixture và kết quả kiểm thử.

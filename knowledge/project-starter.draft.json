@@ -6,9 +6,17 @@
     "category": "project_guide",
     "language": "vi",
     "source": "README.md",
-    "version": "1",
-    "reviewed_at": "2026-11-01",
-    "status": "draft"
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "README.md"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "f02ec7e4c5203e60dd33573b0998029e2ac42e77650804adfe0ffc755bd0b2ee"
   },
   {
     "_id": "project-game-search-v1",
@@ -17,9 +25,17 @@
     "category": "project_guide",
     "language": "vi",
     "source": "back_end/app/services/steam_service.py",
-    "version": "1",
-    "reviewed_at": "2026-11-01",
-    "status": "draft"
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/services/steam_service.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "1864185b97f4a09d36a4f945421f65179ee0737caa437532205ee7ec29e5a500"
   },
   {
     "_id": "project-dashboard-v1",
@@ -28,9 +44,17 @@
     "category": "project_guide",
     "language": "vi",
     "source": "back_end/app/services/steam_service.py",
-    "version": "1",
-    "reviewed_at": "2026-11-01",
-    "status": "draft"
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/services/steam_service.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "1594e73ff26eb0f367279b94c6df17241fa3cc37d60862007acaa1f394a0d54a"
   },
   {
     "_id": "project-chat-session-v1",
@@ -39,9 +63,17 @@
     "category": "project_guide",
     "language": "vi",
     "source": "back_end/app/api/v1/agent_rpc.py",
-    "version": "1",
-    "reviewed_at": "2026-11-01",
-    "status": "draft"
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/api/v1/agent_rpc.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "fe91f67249dc524c0b896539b33145cd1bec8520b05897446543184df1037435"
   },
   {
     "_id": "project-chart-freshness-v1",
@@ -50,9 +82,17 @@
     "category": "project_guide",
     "language": "vi",
     "source": "back_end/app/agent_harness/mcp.py",
-    "version": "1",
-    "reviewed_at": "2026-11-01",
-    "status": "draft"
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/agent_harness/mcp.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "6b78c003f3bca5810341faaced8486cf63fca7d76c25cd6ad149d8184e0c6e91"
   },
   {
     "_id": "metric-game-versus-review-v1",
@@ -61,9 +101,17 @@
     "category": "metric_definition",
     "language": "vi",
     "source": "back_end/app/models/steam.py",
-    "version": "1",
-    "reviewed_at": "2026-11-01",
-    "status": "draft"
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/models/steam.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "b15bc8d7ecc3455d2272bde62a0c435bf41721ad1544861f269be12dbe687b04"
   },
   {
     "_id": "metric-multiple-genres-v1",
@@ -72,9 +120,17 @@
     "category": "metric_definition",
     "language": "vi",
     "source": "back_end/app/models/steam.py",
-    "version": "1",
-    "reviewed_at": "2026-11-01",
-    "status": "draft"
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/models/steam.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "b432b68bc42e36a56bde5410479def66eee632d6e94dec39b9dc276b4297c4e9"
   },
   {
     "_id": "metric-sample-versus-total-v1",
@@ -83,8 +139,442 @@
     "category": "metric_definition",
     "language": "vi",
     "source": "back_end/app/agent_harness/mcp.py",
-    "version": "1",
-    "reviewed_at": "2026-11-01",
-    "status": "draft"
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/agent_harness/mcp.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "f25f7a4aa49ea1c0c6727ffd876074736258cc52c91567d0a0f8cd9a4797df8c"
+  },
+  {
+    "_id": "project-cancel-run-v1",
+    "title": "Theo dõi và hủy một tác vụ chat",
+    "text": "Một câu hỏi được xử lý như một run có trạng thái queued, running, completed, failed hoặc cancelled. Khi tác vụ đang chạy và không còn cần kết quả, người dùng có thể yêu cầu hủy. Hủy không đồng nghĩa xóa phiên chat hay xóa các lượt trước. Việc hủy ở ứng dụng không bảo đảm công việc đã gửi sang dịch vụ bên ngoài dừng tức thì. Nếu muốn hỏi lại, hãy kiểm tra trạng thái tác vụ trước rồi gửi câu hỏi rõ hơn trong cùng phiên. Trạng thái failed biểu thị tác vụ lỗi, không phải bằng chứng rằng dataset không có game phù hợp.",
+    "category": "project_guide",
+    "language": "vi",
+    "source": "back_end/app/api/v1/agent_rpc.py",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/api/v1/agent_rpc.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "79360389f0fa380b11081fc10a1188953681861083629e2ad68d16a970977379"
+  },
+  {
+    "_id": "steam-appid-v1",
+    "title": "AppID là gì?",
+    "text": "AppID là mã định danh duy nhất của một ứng dụng trên Steam. Trong dự án, steam_appid là khóa chính của bảng games và là khóa liên kết review với game. Tìm hoặc nối dữ liệu bằng mã này giúp tránh nhầm các tên game giống nhau. Một AppID không tự chứng minh sản phẩm là game đầy đủ; Steam còn có các loại ứng dụng khác.",
+    "category": "steam_knowledge",
+    "language": "vi",
+    "source": "https://partner.steamgames.com/doc/store/application",
+    "sources": [
+      "https://partner.steamgames.com/doc/store/application",
+      "back_end/app/models/steam.py"
+    ],
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "verification": "source_reviewed",
+    "content_hash": "135088e2b6cd9140de3804c90d69d309077ec395f7275f55332d5c6d8f7f3f89"
+  },
+  {
+    "_id": "steam-app-types-v1",
+    "title": "Game, demo và DLC có giống nhau không?",
+    "text": "Steam phân biệt game, software, demo và DLC. Demo và DLC có thể mang AppID riêng, liên kết với ứng dụng gốc. Do đó đếm mọi AppID từ một nguồn Steam bất kỳ không nhất thiết là đếm game đầy đủ. Schema games của dự án không có cột loại ứng dụng; cần kiểm tra quy tắc chọn dữ liệu đầu vào trước khi kết luận dataset chỉ chứa một loại sản phẩm.",
+    "category": "steam_knowledge",
+    "language": "vi",
+    "source": "https://partner.steamgames.com/doc/store/application",
+    "sources": [
+      "https://partner.steamgames.com/doc/store/application",
+      "back_end/app/models/steam.py"
+    ],
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "verification": "source_reviewed",
+    "content_hash": "a29e47ab2be9375efddfd694ee8c55246c7328ba102cbb1d63c95b1177b41381"
+  },
+  {
+    "_id": "steam-early-access-v1",
+    "title": "Early Access nghĩa là gì?",
+    "text": "Steam Early Access cho phép người dùng tiếp cận một sản phẩm có thể chơi được trong khi sản phẩm vẫn đang được phát triển. Nó khác đặt mua trước một game chưa được cung cấp để chơi. Trong dự án, written_during_early_access thuộc từng review: cờ này nói về thời điểm viết review, không chứng minh game hiện vẫn đang Early Access. Muốn biết trạng thái hiện tại cần nguồn cập nhật của sản phẩm.",
+    "category": "steam_knowledge",
+    "language": "vi",
+    "source": "https://partner.steamgames.com/doc/store/earlyaccess",
+    "sources": [
+      "https://partner.steamgames.com/doc/store/earlyaccess",
+      "back_end/app/models/steam.py"
+    ],
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "verification": "source_reviewed",
+    "content_hash": "c381656f4e9f7870c26367beb66c62854522fc05c3347a466b77d59a8cb176aa"
+  },
+  {
+    "_id": "steam-localization-v1",
+    "title": "Hỗ trợ ngôn ngữ có bao gồm lồng tiếng không?",
+    "text": "Hỗ trợ ngôn ngữ trên Steam có thể được khai báo riêng cho giao diện, phụ đề và âm thanh. Có hỗ trợ một ngôn ngữ không mặc nhiên có lồng tiếng bằng ngôn ngữ đó. Dự án lưu tên ngôn ngữ trong languages và quan hệ game_languages, không có cột phân biệt ba mức hỗ trợ này. Vì vậy dataset có thể trả lời game liên kết với ngôn ngữ nào, nhưng chưa đủ để xác nhận game được lồng tiếng.",
+    "category": "steam_knowledge",
+    "language": "vi",
+    "source": "https://partner.steamgames.com/doc/store/localization",
+    "sources": [
+      "https://partner.steamgames.com/doc/store/localization",
+      "back_end/app/models/steam.py"
+    ],
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "verification": "source_reviewed",
+    "content_hash": "b9c7b15225eec7b7738d9460d56979da92acc6bde266d152aa85f1697c339d71"
+  },
+  {
+    "_id": "steam-tags-v1",
+    "title": "Steam tag có phải genre trong dataset không?",
+    "text": "Steam tags là các nhãn mô tả game và hỗ trợ khám phá nội dung. Trong dự án, genres và categories là hai bảng riêng; không có bảng Steam tags trong model hiện tại. Không nên tự coi danh sách genre là toàn bộ tag của một game, hoặc coi category là genre. Khi người dùng hỏi theo một tag, cần kiểm tra dữ liệu thực sự có nhãn đó và nhãn thuộc loại nào trước khi thống kê.",
+    "category": "steam_knowledge",
+    "language": "vi",
+    "source": "https://partner.steamgames.com/doc/store/tags",
+    "sources": [
+      "https://partner.steamgames.com/doc/store/tags",
+      "back_end/app/models/steam.py"
+    ],
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "verification": "source_reviewed",
+    "content_hash": "b26ba4a0d7ef15bc3a7ecb0aec85a41345d55bff270bdc3c6223652d40025872"
+  },
+  {
+    "_id": "steam-release-date-v1",
+    "title": "Ngày phát hành dùng trong phân tích là ngày nào?",
+    "text": "Steam có cơ chế khai báo và hiển thị ngày phát hành, kể cả thông tin dự kiến trước khi sản phẩm ra mắt. Dự án lưu release_date dưới dạng DATE. Cột này không lưu toàn bộ lịch sử thay đổi lịch phát hành hay các mốc Early Access và bản chính thức riêng biệt. Biểu đồ theo tháng trong dataset phản ánh giá trị đã nhập vào cột này; không tự chứng minh đó là lần phát hành đầu tiên trên mọi nền tảng.",
+    "category": "steam_knowledge",
+    "language": "vi",
+    "source": "https://partner.steamgames.com/doc/store/release_dates",
+    "sources": [
+      "https://partner.steamgames.com/doc/store/release_dates",
+      "back_end/app/models/steam.py"
+    ],
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "verification": "source_reviewed",
+    "content_hash": "d7c41a6b04fe071de40aebecf69c159fe32a7478b3fc2a9de55c074c96e65029"
+  },
+  {
+    "_id": "steam-review-v1",
+    "title": "Review của Steam và review trong dự án",
+    "text": "Steam cung cấp dữ liệu đánh giá của người dùng, bao gồm định danh review, nội dung và các thuộc tính liên quan. Một review là một bản ghi phản hồi, không phải một đơn mua hàng. Model reviews của dự án giữ nội dung, ngôn ngữ và thời điểm, nhưng không có cột voted_up. Vì vậy không thể tính trực tiếp tỷ lệ khuyến nghị tích cực theo trường voted_up từ schema này. Số review cao không đủ để kết luận game được đánh giá tốt.",
+    "category": "steam_knowledge",
+    "language": "vi",
+    "source": "https://partner.steamgames.com/doc/webapi/IUserReviewsService",
+    "sources": [
+      "https://partner.steamgames.com/doc/webapi/IUserReviewsService",
+      "back_end/app/models/steam.py"
+    ],
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "verification": "source_reviewed",
+    "content_hash": "97ec69845ca260a7ed9a555f8ecaaf84fed8766569c5c27e40ce1b8dc938b424"
+  },
+  {
+    "_id": "steam-playtime-v1",
+    "title": "Playtime trong dữ liệu review là gì?",
+    "text": "Các trường playtime của Steam được biểu diễn bằng phút. Trong dự án, playtime_at_review mô tả thời gian chơi tại lúc đánh giá; playtime_forever mô tả tổng thời gian chơi được ghi nhận trong dữ liệu; playtime_last_two_weeks mô tả khoảng gần đây theo nguồn thu thập. Chia phút cho 60 để đổi sang giờ. Đây không phải đồng hồ cập nhật trực tiếp khi người dùng mở website.",
+    "category": "steam_knowledge",
+    "language": "vi",
+    "source": "https://partner.steamgames.com/doc/webapi/IUserReviewsService",
+    "sources": [
+      "https://partner.steamgames.com/doc/webapi/IUserReviewsService",
+      "back_end/app/models/steam.py"
+    ],
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "verification": "source_reviewed",
+    "content_hash": "439d51d9341941a0e8eeb6d0f1ac08c796a873a4a4b5a9a250af5a1c3ef9d05c"
+  },
+  {
+    "_id": "metric-null-v1",
+    "title": "NULL, chuỗi rỗng và số 0 có khác nhau không?",
+    "text": "NULL biểu thị thiếu giá trị; chuỗi rỗng vẫn là một giá trị text; số 0 là một giá trị số. release_date và price_text có thể thiếu theo model. COUNT(*) đếm dòng, còn COUNT(release_date) bỏ dòng có ngày NULL. Không thay ngày thiếu bằng một ngày tùy ý để vẽ xu hướng. Các trường playtime có default 0 trong model, nên cần kiểm tra nguồn và cách nhập trước khi diễn giải mọi số 0 là người chơi chưa chơi lần nào.",
+    "category": "metric_definition",
+    "language": "vi",
+    "source": "back_end/app/models/steam.py",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/models/steam.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "4fa63c684d1c8c79e829a3f6bee6ad3c6c6f246048903676a1364a5b3e6856ac"
+  },
+  {
+    "_id": "metric-free-v1",
+    "title": "Game miễn phí và nhận game miễn phí khác nhau thế nào?",
+    "text": "games.is_free mô tả trạng thái miễn phí của game trong dataset. reviews.received_for_free mô tả việc người viết review nhận sản phẩm miễn phí. Đây là hai thuộc tính thuộc hai đối tượng khác nhau. Một review received_for_free không đủ để gán game thành free-to-play. Khi hỏi bao nhiêu game miễn phí, cần lọc games.is_free; khi hỏi bao nhiêu review từ người nhận game miễn phí, cần lọc reviews.received_for_free.",
+    "category": "metric_definition",
+    "language": "vi",
+    "source": "back_end/app/models/steam.py",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/models/steam.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "6a075dc2daafb37805596d7ba6f2bcc154eb3946a73fb145fbafcf4da96501ee"
+  },
+  {
+    "_id": "metric-dates-v1",
+    "title": "Phân biệt ngày phát hành, ngày đánh giá và ngày nhập dữ liệu",
+    "text": "games.release_date là ngày phát hành trong dữ liệu game. reviews.timestamp_created và timestamp_updated là thời điểm tạo và cập nhật review được lưu. created_at là trường thời gian tạo bản ghi trong cơ sở dữ liệu, không nên dùng thay ngày phát hành hoặc ngày review. Khi hỏi xu hướng theo tháng, hãy nói rõ đang thống kê game phát hành hay review được viết. Với timestamp, cần thống nhất múi giờ và dùng khoảng từ đầu kỳ đến trước đầu kỳ kế tiếp.",
+    "category": "metric_definition",
+    "language": "vi",
+    "source": "back_end/app/models/steam.py",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/models/steam.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "667c177246165cd6514cd8713924c75d83575a946c4f37b7bdae09677f26c14f"
+  },
+  {
+    "_id": "metric-language-v1",
+    "title": "Ngôn ngữ game khác ngôn ngữ review ra sao?",
+    "text": "game_languages nối game với ngôn ngữ hỗ trợ. reviews.language lưu ngôn ngữ của từng review. Một game hỗ trợ tiếng Việt không có nghĩa mọi review của nó viết bằng tiếng Việt. Đếm game hỗ trợ một ngôn ngữ cần đi qua bảng nối; đếm review theo ngôn ngữ dùng reviews.language. Tên hoặc mã ngôn ngữ giữa hai nguồn có thể khác cách biểu diễn, nên phải xem giá trị thực tế trước khi so sánh.",
+    "category": "metric_definition",
+    "language": "vi",
+    "source": "back_end/app/models/steam.py",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/models/steam.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "ec4e169251700cb93ed4c8b1f39f73da11269cf461ca2c81ff4ff8de86659d8b"
+  },
+  {
+    "_id": "metric-price-v1",
+    "title": "Có thể lấy price_text để tính doanh thu không?",
+    "text": "price_text là chuỗi hiển thị giá trong model, không phải doanh thu hay dữ liệu giao dịch. Schema không có số bản bán, doanh thu hoặc lịch sử giá có cấu trúc. Không nhân giá với số reviews để coi là doanh thu thật. Nếu cần phân tích giá, trước tiên phải kiểm tra đơn vị tiền tệ, cách viết chuỗi và thời điểm thu thập; mọi bước chuyển sang số cần quy tắc xử lý thiếu giá rõ ràng.",
+    "category": "metric_definition",
+    "language": "vi",
+    "source": "back_end/app/models/steam.py",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/models/steam.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "623916c8782e715d425c74ede792a5f52ea9d44e7c7be9f89602f69a165cb812"
+  },
+  {
+    "_id": "metric-reviewer-v1",
+    "title": "Số người review có bằng số người chơi không?",
+    "text": "reviews.steamid liên kết review với người dùng Steam trong bảng users. Đếm người viết review duy nhất khác với đếm review: một người có thể viết review cho nhiều game. Dataset review không đại diện cho mọi người đã chơi, mọi chủ sở hữu game hoặc người chơi đồng thời. users.num_games_owned cũng không phải doanh số của một game. Khi báo cáo, dùng tên chỉ số đúng như số người viết review trong dataset.",
+    "category": "metric_definition",
+    "language": "vi",
+    "source": "back_end/app/models/steam.py",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/models/steam.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "8366252b4ea67c6073beb8d3d8bd0df051627d818beddf5dafb4ccc389276325"
+  },
+  {
+    "_id": "metric-join-v1",
+    "title": "Vì sao JOIN nhiều bảng khiến số liệu bị tăng?",
+    "text": "Một game có thể có nhiều review và nhiều genre. Khi nối đồng thời cả hai quan hệ, một review có thể xuất hiện nhiều lần, mỗi lần ứng với một genre. Ví dụ minh họa: game có 2 review và 3 genre có thể tạo 6 dòng khi nối; đây không phải 6 review thật. Cần xác định đơn vị đếm trước, dùng COUNT(DISTINCT khóa) hoặc tổng hợp từng nhánh trước khi nối. SUM và AVG cũng có thể bị sai trọng số do dòng lặp.",
+    "category": "metric_definition",
+    "language": "vi",
+    "source": "back_end/app/models/steam.py",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/models/steam.py"
+    ],
+    "verification": "source_reviewed",
+    "content_hash": "30b78285d588438d63ac00fcd60eeb538b69f332aaac22c2b27f534e483f1715"
+  },
+  {
+    "_id": "analysis-monthly-v1",
+    "title": "Phân tích số game phát hành theo tháng",
+    "text": "Câu hỏi mẫu: Trong một năm đã chọn, mỗi tháng dataset có bao nhiêu game phát hành? Dùng games.release_date, loại ngày thiếu khỏi chuỗi thời gian và báo riêng số bản ghi thiếu nếu cần. Nhóm theo cả năm và tháng để không gộp tháng của nhiều năm. Dùng biểu đồ line hoặc bar, sắp xếp thời gian tăng dần. Một tháng không có dòng kết quả chưa chắc đã được biểu diễn bằng 0; muốn đủ mọi tháng cần tạo lịch tháng và nối kết quả tổng hợp. Không diễn giải tăng số game trong dataset thành tăng doanh thu Steam. Đây là hướng dẫn phân tích đối chiếu schema, chưa phải kết quả truy vấn đã chạy trên database.",
+    "category": "analysis_pattern",
+    "language": "vi",
+    "source": "back_end/app/services/steam_service.py",
+    "verification": "schema_reviewed_not_executed",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/services/steam_service.py"
+    ],
+    "content_hash": "45b52d12942dddb6ea48ea2a847e2354e51c87cf0517e0ac632ff7fd47fd737f"
+  },
+  {
+    "_id": "analysis-top-genres-v1",
+    "title": "Phân tích top genre theo số game",
+    "text": "Câu hỏi mẫu: Những genre nào có nhiều game nhất trong dataset? Nối genres với game_genres và đếm steam_appid theo từng genre. Nếu thêm reviews hoặc bảng nhiều giá trị khác, cần chống đếm trùng game. Nêu rõ top bao nhiêu và cách xử lý đồng hạng; top 10 không phải toàn bộ phân bố. Các nhóm có thể chồng lấp vì một game thuộc nhiều genre. Biểu đồ bar phù hợp so sánh; không diễn giải tổng tỷ lệ của các nhóm như một phân hoạch độc lập. Đây là hướng dẫn phân tích đối chiếu schema, chưa phải kết quả truy vấn đã chạy trên database.",
+    "category": "analysis_pattern",
+    "language": "vi",
+    "source": "back_end/app/services/steam_service.py",
+    "verification": "schema_reviewed_not_executed",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/services/steam_service.py"
+    ],
+    "content_hash": "fe0d94fb418dd8797dc476664f76c13ffefadbf52949f8149072c25cb30408c1"
+  },
+  {
+    "_id": "analysis-languages-v1",
+    "title": "Phân tích độ phủ ngôn ngữ hỗ trợ",
+    "text": "Câu hỏi mẫu: Bao nhiêu game hỗ trợ từng ngôn ngữ và tỷ lệ trên toàn bộ game là bao nhiêu? Nối languages với game_languages, đếm game duy nhất cho từng ngôn ngữ. Nếu mẫu số là tất cả games, cần giữ cùng điều kiện lọc năm hoặc miễn phí ở cả tử số và mẫu số. Tổng tỷ lệ có thể vượt 100% do một game hỗ trợ nhiều ngôn ngữ. Không dùng số review theo ngôn ngữ để thay thế chỉ số này. Đây là hướng dẫn phân tích đối chiếu schema, chưa phải kết quả truy vấn đã chạy trên database.",
+    "category": "analysis_pattern",
+    "language": "vi",
+    "source": "back_end/app/services/steam_service.py",
+    "verification": "schema_reviewed_not_executed",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/services/steam_service.py"
+    ],
+    "content_hash": "9ce835e5d819a44f2c56b301d615a4e60016e34b71aa94881364cdf927837127"
+  },
+  {
+    "_id": "analysis-free-share-v1",
+    "title": "Phân tích tỷ lệ game miễn phí",
+    "text": "Câu hỏi mẫu: Tỷ lệ game miễn phí trong một nhóm phát hành là bao nhiêu? Tử số là game có is_free=true, mẫu số là tất cả game trong cùng phạm vi. Nhân tỷ số với 100 và tránh chia cho 0 khi không có game. Nếu phân nhóm theo genre, một game có thể được tính ở nhiều nhóm; điều đó cần được giải thích. Đây là tỷ lệ danh mục trong dataset, không phải tỷ lệ doanh thu hay tỷ lệ người dùng chơi game miễn phí. Đây là hướng dẫn phân tích đối chiếu schema, chưa phải kết quả truy vấn đã chạy trên database.",
+    "category": "analysis_pattern",
+    "language": "vi",
+    "source": "back_end/app/models/steam.py",
+    "verification": "schema_reviewed_not_executed",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/models/steam.py"
+    ],
+    "content_hash": "05c5018b456320dabcb22d5d9bbdbbe6d4b887c2abc91f7f4581024da760522c"
+  },
+  {
+    "_id": "analysis-playtime-v1",
+    "title": "Phân tích thời gian chơi trung bình và trung vị",
+    "text": "Câu hỏi mẫu: Với các review thuộc một nhóm game, thời gian chơi tại lúc review phân bố như thế nào? Chọn rõ playtime_at_review hoặc playtime_forever trước khi tính. Thống kê số dòng, kiểm tra số 0 và giá trị bất thường; so sánh trung bình với trung vị để thấy ảnh hưởng của giá trị rất lớn. Đổi phút sang giờ nhất quán. Trung bình trên mọi review khác trung bình của các trung bình theo game: cách thứ hai cho mỗi game trọng số ngang nhau. Kết quả chỉ mô tả tập dữ liệu đã chọn. Đây là hướng dẫn phân tích đối chiếu schema, chưa phải kết quả truy vấn đã chạy trên database.",
+    "category": "analysis_pattern",
+    "language": "vi",
+    "source": "back_end/app/models/steam.py",
+    "verification": "schema_reviewed_not_executed",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/models/steam.py"
+    ],
+    "content_hash": "afb185b402e51d741d70e6328e1ab51a23ec06e1dc96e8c2d1832679a8b04515"
+  },
+  {
+    "_id": "analysis-review-volume-v1",
+    "title": "Xếp hạng game theo số review",
+    "text": "Câu hỏi mẫu: Game nào có nhiều review nhất trong khoảng thời gian đã chọn? Lọc reviews.timestamp_created nếu muốn thời gian viết review, rồi nhóm theo steam_appid và đếm recommendationid. Nối games để lấy tên hiển thị. Nếu cần giữ game chưa có review, dùng phép nối trái và tránh COUNT(*) làm game đó bị đếm thành một review. Hãy phân biệt khoảng phát hành game với khoảng viết review. Xếp hạng này phản ánh lượng phản hồi trong dataset, chưa đo chất lượng, doanh số hoặc người chơi đồng thời. Đây là hướng dẫn phân tích đối chiếu schema, chưa phải kết quả truy vấn đã chạy trên database.",
+    "category": "analysis_pattern",
+    "language": "vi",
+    "source": "back_end/app/services/steam_service.py",
+    "verification": "schema_reviewed_not_executed",
+    "version": "2",
+    "reviewed_at": "2026-11-09",
+    "status": "approved",
+    "approved_at": "2026-11-09",
+    "approval_basis": "user_instruction",
+    "corpus_version": "project-starter-v2",
+    "sources": [
+      "back_end/app/services/steam_service.py"
+    ],
+    "content_hash": "9b9e31bf9bf3c205e6c43e8a0bc4e712073150676389e0cbc572080e3c43435e"
   }
 ]

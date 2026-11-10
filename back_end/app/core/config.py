@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     # If empty, AI queries use the main DATABASE_URL
     DATABASE_URL_READONLY: Optional[str] = None
     DB_SSL_VERIFY: bool = True
+    DB_SSL_ENABLED: bool = True  # Disable only for isolated local PostgreSQL.
 
     # ============== Redis (Upstash) ==============
     # Hỗ trợ 1 trong 2 format
@@ -46,6 +47,7 @@ class Settings(BaseSettings):
     REDIS_PORT: Optional[int] = None
     REDIS_PASSWORD: Optional[str] = None
     REDIS_TTL: int = 3600
+    REDIS_FORCE_TLS: bool = True  # False only for isolated local Redis.
 
     @model_validator(mode="after")
     def _build_redis_url(self) -> "Settings":
@@ -86,9 +88,20 @@ class Settings(BaseSettings):
     AGENT_MAX_STEPS: int = 8
     AGENT_TOOL_TIMEOUT: float = 12.0
     AGENT_HISTORY_RUNS: int = 20
+    AGENT_RECOVERY_ENABLED: bool = True
+    AGENT_MAX_CONCURRENT_RUNS: int = 2
+    AGENT_MAX_PENDING_RUNS: int = 8
     AGENT_EVENT_MAX_BYTES: int = 65536
     MCP_SERVER_URL: str = "http://127.0.0.1:8001/mcp"
     MCP_SHARED_SECRET: str = ""
+
+    # Optional knowledge retrieval; credentials are backend-only.
+    RAG_ENABLED: bool = False
+    PINECONE_API_KEY: str = ""
+    PINECORN_API_KEY: str = ""  # backwards-compatible local env alias
+    PINECONE_INDEX_NAME: str = "steam-knowledge"
+    PINECONE_NAMESPACE: str = "project-starter-v2"
+    PINECONE_TEXT_FIELD: str = "text"
 
     # ============== E2B Sandbox ==============
     E2B_API_KEY: str = ""
@@ -131,6 +144,8 @@ class Settings(BaseSettings):
             raise ValueError("OPENROUTER_API_KEY is required in production")
         if not 1 <= self.AGENT_MAX_STEPS <= 30:
             raise ValueError("AGENT_MAX_STEPS must be between 1 and 30")
+        if not 1 <= self.AGENT_MAX_CONCURRENT_RUNS <= self.AGENT_MAX_PENDING_RUNS <= 32:
+            raise ValueError("Require 1 <= concurrent runs <= pending runs <= 32")
         if not 1 <= self.AGENT_TOOL_TIMEOUT <= 60:
             raise ValueError("AGENT_TOOL_TIMEOUT must be between 1 and 60 seconds")
         if not self.DEBUG and len(self.MCP_SHARED_SECRET) < 32:

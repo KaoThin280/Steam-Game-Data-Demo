@@ -12,6 +12,16 @@
 !.env.production.example
 !.env.local.example
 
+# Alternate secret-file names and editor backups of environment files.
+*.env
+*.env.bak
+*.env.backup
+*.env.old
+*.env.save
+production.env
+production.env.*
+!production.env.example
+
 # Local credentials and private keys (public CA .crt files stay versioned).
 *.key
 *.pem
@@ -70,6 +80,7 @@ logs/
 /release/
 /releases/
 /steam-release/
+/steam-releases/
 /steam-backend-*.zip
 /backend-image.tar
 /backend-image.tar.gz
@@ -153,3 +164,4 @@ CHATBOT_INSTRUCTIONS.md
 !/scripts/backend_docker.ps1
 Instruction4Agent.md
 Instruction4Agent.md
+tools/rag/smoke_local.py

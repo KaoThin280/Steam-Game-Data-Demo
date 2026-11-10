@@ -106,7 +106,7 @@ _ssl_ctx = _ssl.create_default_context()
 if not settings.DB_SSL_VERIFY:
     _ssl_ctx.check_hostname = False
     _ssl_ctx.verify_mode = _ssl.CERT_NONE
-_connect_args["ssl"] = _ssl_ctx
+_connect_args["ssl"] = _ssl_ctx if settings.DB_SSL_ENABLED else False
 
 async_engine = create_async_engine(
     _db_url,
@@ -191,7 +191,7 @@ async def get_readonly_db() -> AsyncGenerator[AsyncSession, None]:
 
 # ============== Redis (Async) ==============
 _redis_url = settings.REDIS_URL
-if _redis_url and _redis_url.startswith("redis://"):
+if settings.REDIS_FORCE_TLS and _redis_url and _redis_url.startswith("redis://"):
     _redis_url = _redis_url.replace("redis://", "rediss://", 1)
 
 redis_client: aioredis.Redis = aioredis.from_url(

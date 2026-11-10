@@ -1,6 +1,7 @@
 # Đề xuất bổ sung RAG cho Agent Harness
 
-**Trạng thái: chưa triển khai.** Đây là đề xuất nghiên cứu, không phải mô tả luồng chat hiện tại. Trong code được rà soát chưa có `rag_service.py`, pipeline embedding hoặc vector store tích hợp vào Agent Harness.
+> Cập nhật 2026-11-09: retrieval Pinecone, events và hiển thị nguồn đã tích hợp; xem [trạng thái triển khai và kiểm thử local](../guides/rag-local.md). Các mục bên dưới là thiết kế gốc, không phải tất cả đều đã hoàn tất.
+**Trạng thái: đã triển khai retrieval V1, chưa hoàn tất toàn bộ kế hoạch đánh giá.** Thiết kế nghiên cứu bên dưới được giữ để đối chiếu; code hiện dùng `knowledge_retrieval.py` và interface `KnowledgeRetriever`.
 
 Để chuyển định hướng thành hạng mục phát triển, xem [thiết kế triển khai RAG](rag-implementation.md): contract truy xuất, ingestion, quyền dữ liệu, version/index và điều kiện nghiệm thu theo giai đoạn.
 

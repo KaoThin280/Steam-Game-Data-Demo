@@ -24,6 +24,7 @@ hiredis==3.0.0
 
 # ============== HTTP Client / AI ==============
 httpx==0.28.1
+pinecone==10.3.0
 openai==1.58.1            # OpenRouter tương thích OpenAI SDK
 
 # ============== Utilities ==============

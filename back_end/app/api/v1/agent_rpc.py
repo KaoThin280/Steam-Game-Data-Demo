@@ -22,9 +22,12 @@ from app.db.session import AsyncSessionLocal, get_db
 from app.models.agent import AgentEvent, AgentRun, AgentSession
 from app.models.user import AppUser
 from app.services.error_notification_service import error_notification_service
+from app.services.knowledge_retrieval import PineconeKnowledgeRetriever
 
 router = APIRouter(prefix="/agent-rpc", tags=["Agent Harness RPC"])
 _tasks: dict[str, asyncio.Task] = {}
+_run_slots = asyncio.Semaphore(settings.AGENT_MAX_CONCURRENT_RUNS)
+_submission_lock = asyncio.Lock()
 logger = logging.getLogger(__name__)
 
 
@@ -96,6 +99,12 @@ async def _execute(run_id: str, session_id: uuid.UUID) -> None:
         PostgresRunStore(),
         max_steps=settings.AGENT_MAX_STEPS,
         tool_timeout=settings.AGENT_TOOL_TIMEOUT,
+        retriever=PineconeKnowledgeRetriever(
+            api_key=settings.PINECONE_API_KEY or settings.PINECORN_API_KEY,
+            index_name=settings.PINECONE_INDEX_NAME,
+            namespace=settings.PINECONE_NAMESPACE,
+            text_field=settings.PINECONE_TEXT_FIELD,
+        ) if settings.RAG_ENABLED else None,
     )
     try:
         await runtime.execute(run_id, history)
@@ -120,17 +129,38 @@ async def _execute(run_id: str, session_id: uuid.UUID) -> None:
         _tasks.pop(run_id, None)
 
 
+async def _execute_with_slot(run_id: str, session_id: uuid.UUID) -> None:
+    """Bound memory/model concurrency before loading history or opening providers."""
+    entered = False
+    try:
+        async with _run_slots:
+            entered = True
+            await _execute(run_id, session_id)
+    except asyncio.CancelledError:
+        if not entered:
+            store = PostgresRunStore()
+            if not settings.AGENT_RECOVERY_ENABLED or await store.is_cancel_requested(run_id):
+                await store.set_status(run_id, "cancelled", cancel_requested=True)
+                await store.append_event(run_id, "run.cancelled", {"source": "waiting_for_slot"})
+        raise
+    finally:
+        _tasks.pop(run_id, None)
+
+
 def _schedule_run(run_id: str, session_id: uuid.UUID) -> None:
     existing = _tasks.get(run_id)
     if existing and not existing.done():
         return
     _tasks[run_id] = asyncio.create_task(
-        _execute(run_id, session_id), name=f"agent-run-{run_id}"
+        _execute_with_slot(run_id, session_id), name=f"agent-run-{run_id}"
     )
 
 
 async def recover_orphaned_runs() -> int:
     """Requeue read-only agent runs orphaned by a process/VPS restart."""
+    if not settings.AGENT_RECOVERY_ENABLED:
+        logger.info("Agent startup recovery disabled for this instance")
+        return 0
     store = PostgresRunStore()
     async with AsyncSessionLocal() as db:
         rows = (await db.scalars(
@@ -253,30 +283,33 @@ async def delete_session(
 @router.post("/sessions/{session_id}/tasks", status_code=status.HTTP_202_ACCEPTED)
 async def send_task(session_id: uuid.UUID, payload: SendTaskRequest, request: Request, user: AppUser = Depends(get_current_active_user), db: AsyncSession = Depends(get_db)):
     await rate_limit(request, limit=settings.RATE_LIMIT_AI_PER_MINUTE, window=60, bucket="agent-rpc")
-    await _owned_session(db, session_id, user.id)
-    active = await db.scalar(
-        select(AgentRun.id).where(
-            AgentRun.session_id == session_id,
-            AgentRun.status.in_(("queued", "running")),
-        ).limit(1)
-    )
-    if active is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Session already has active run {active}",
+    async with _submission_lock:
+        await _owned_session(db, session_id, user.id)
+        if sum(not task.done() for task in _tasks.values()) >= settings.AGENT_MAX_PENDING_RUNS:
+            raise HTTPException(status_code=503, detail="Agent is busy; please retry shortly", headers={"Retry-After": "10"})
+        active = await db.scalar(
+            select(AgentRun.id).where(
+                AgentRun.session_id == session_id,
+                AgentRun.status.in_(("queued", "running")),
+            ).limit(1)
         )
-    run = AgentRun(session_id=session_id, input_text=payload.message, status="queued", max_steps=settings.AGENT_MAX_STEPS)
-    db.add(run)
-    await db.execute(
-        update(AgentSession)
-        .where(AgentSession.id == session_id)
-        .values(updated_at=datetime.now(timezone.utc))
-    )
-    await db.commit()
-    await db.refresh(run)
-    run_id = str(run.id)
-    _schedule_run(run_id, session_id)
-    return {"run_id": run_id, "session_id": str(session_id), "status": "queued"}
+        if active is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Session already has active run {active}",
+            )
+        run = AgentRun(session_id=session_id, input_text=payload.message, status="queued", max_steps=settings.AGENT_MAX_STEPS)
+        db.add(run)
+        await db.execute(
+            update(AgentSession)
+            .where(AgentSession.id == session_id)
+            .values(updated_at=datetime.now(timezone.utc))
+        )
+        await db.commit()
+        await db.refresh(run)
+        run_id = str(run.id)
+        _schedule_run(run_id, session_id)
+        return {"run_id": run_id, "session_id": str(session_id), "status": "queued"}
 
 
 @router.get("/runs/{run_id}")

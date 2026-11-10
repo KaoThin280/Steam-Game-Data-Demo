@@ -118,6 +118,34 @@ async def test_process_interruption_requeues_run_for_startup_recovery():
     assert "run.interrupted" in [event for event, _ in store.events]
 
 
+@pytest.mark.asyncio
+async def test_local_shutdown_does_not_leave_recoverable_run(monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "AGENT_RECOVERY_ENABLED", False)
+    entered = asyncio.Event()
+    class SlowProvider:
+        async def next_turn(self, *_args):
+            entered.set()
+            await asyncio.sleep(60)
+    store = FakeStore()
+    task = asyncio.create_task(AgentRuntime(SlowProvider(), FakeTools(), store).execute("run", []))
+    await entered.wait()
+    task.cancel()
+    await task
+    assert store.status == "cancelled"
+    assert store.fields["cancel_requested"] is True
+
+
+@pytest.mark.asyncio
+async def test_disabled_recovery_never_opens_database(monkeypatch):
+    from app.api.v1 import agent_rpc
+    monkeypatch.setattr(agent_rpc.settings, "AGENT_RECOVERY_ENABLED", False)
+    def forbidden():
+        raise AssertionError("Must not inspect or update shared runs")
+    monkeypatch.setattr(agent_rpc, "AsyncSessionLocal", forbidden)
+    assert await agent_rpc.recover_orphaned_runs() == 0
+
+
 def test_response_language_uses_current_turn_not_old_history():
     history = [
         {"role": "user", "content": "Bạn là ai?"},

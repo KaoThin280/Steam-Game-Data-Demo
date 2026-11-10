@@ -284,6 +284,10 @@ export interface AgentEvent {
     answer?: string;
     code?: string;
     message?: string;
+    status?: "ok" | "empty" | "unavailable";
+    corpus_version?: string;
+    duration_ms?: number;
+    sources?: { id: string; title: string; text: string; source: string; citation: string }[];
     result?: { content?: { chart?: AgentChartPayload; truncated?: boolean } };
   };
   created_at: string;
